@@ -6,7 +6,7 @@ import scipy
 import cupy as np
 import matplotlib.pyplot as plt
 import os
-
+from scipy.stats import circvar
 from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
 
@@ -157,7 +157,7 @@ def get_natural_stats_distribution(n_points, peaks=None, kappa=6):
 N = 360
 kappa_sharp = 8
 kappa_wide = 2
-n_stim = 250
+n_stim = 500
 np.random.seed(0)
 normalize_fr = True
 recalculate_connectivity = True
@@ -249,8 +249,8 @@ plt.show()
 a = all_idr_resps[0].var(0)
 idr_var = get(all_idr_resps.mean(-1).var(-1))
 ndr_var = get(all_ndr_resps.mean(-1).var(-1))
-plt.plot(get(stim_list), idr_var, label="IDR")
-plt.plot(get(stim_list), ndr_var, label="NDR")
+plt.scatter(get(stim_list), idr_var, label="IDR", s=2, alpha=0.5)
+plt.scatter(get(stim_list), ndr_var, label="NDR", s=2, alpha=0.5)
 cardinal_orientations = get(np.array([0, np.pi / 2, np.pi, 3 * np.pi / 2, 2 * np.pi]))
 plt.vlines(cardinal_orientations, min(idr_var.min(), ndr_var.min()),
            max(idr_var.max(), ndr_var.max()), linestyles="--",
@@ -261,6 +261,49 @@ plt.vlines(cardinal_orientations + (np.pi / 4), min(idr_var.min(), ndr_var.min()
 
 plt.legend()
 plt.show()
+# %% Calculate binned variance and bias for IDR and NDR in 1 degree bins
+bin_size = 1
+stim = np.arange(0, 360, bin_size) * np.pi / 180
+idr_binned_var = np.zeros_like(stim)
+ndr_binned_var = np.zeros_like(stim)
+ndr_binned_bias = np.zeros_like(stim)
+idr_binned_bias = np.zeros_like(stim)
+for i, s in enumerate(tqdm(stim)):
+    # run idr and ndr models on the stimulus
+    idr_fr = model_idr.run(s)
+    ndr_fr = model_ndr.run(s)
+
+    # normalize the firing rates to a probability distribution and choose orientations based on the firing rates
+    idr_fr -= idr_fr.min()
+    idr_fr /= idr_fr.sum()
+    ndr_fr -= ndr_fr.min()
+    ndr_fr /= ndr_fr.sum()
+
+    idr_choices = np.random.choice(np.squeeze(model_idr.theta), replace=True, p=np.squeeze(idr_fr), size=1000)
+    ndr_choices = np.random.choice(np.squeeze(model_ndr.theta), replace=True, p=np.squeeze(ndr_fr), size=1000)
+
+    # calculate the variance and bias of the choices
+    idr_binned_var[i] = circvar(get(idr_choices))
+    ndr_binned_var[i] = circvar(get(ndr_choices))
+    idr_binned_bias[i] = circ_distance(get(idr_choices).mean(), s)
+    ndr_binned_bias[i] = circ_distance(get(ndr_choices).mean(), s)
+
+# calculate the derivative of the bias
+idr_binned_bias = np.gradient(idr_binned_bias, bin_size)
+ndr_binned_bias = np.gradient(ndr_binned_bias, bin_size)
+
+# calculate the cramer-rao lower bound
+idr_crlb = (1 + idr_binned_bias) / np.sqrt(idr_binned_var)
+ndr_crlb = (1 + ndr_binned_bias) / np.sqrt(ndr_binned_var)
+
+bound = 15
+
+# plot the cramers-rao lower bound
+plt.plot(get(stim)[15:-15], get(idr_crlb)[15:-15], label="IDR", color=ASD_COLOR)
+plt.plot(get(stim)[15:-15], get(ndr_crlb)[15:-15], label="NDR", color=NT_COLOR)
+plt.legend()
+plt.show()
+
 # %%
 plt.plot(get(model_ndr.theta), get(model_ndr.tuning_widths), label="NDR")
 plt.plot(get(model_idr.theta), get(model_idr.tuning_widths), label="IDR")
@@ -270,32 +313,98 @@ plt.vlines(cardinal_orientations + (np.pi / 4), 2, 6, linestyles="--",
            colors='black', label="Oblique")
 plt.legend()
 plt.show()
-# %% Plot one example of stimulus response
-plt.plot(get(model_ndr.theta), get(all_ndr_resps[135, :, 0]), label="Oblique")
-# plt.plot(get(model_ndr.theta), get(np.roll(all_ndr_resps[90, :, 0], 135 - 90)), label="Cardinal")
-plt.plot(get(model_ndr.theta), get(all_ndr_resps[90, :, 0]), label="Cardinal")
-plt.plot(get(model_ndr.theta), get(all_idr_resps[135, :, 0]), label="Oblique IDR")
-# plt.plot(get(model_ndr.theta), get(np.roll(all_idr_resps[90, :, 0], 135 - 90)), label="Cardinal IDR")
-plt.plot(get(model_ndr.theta), get(all_idr_resps[90, :, 0]), label="Cardinal IDR")
+# %% get the idx of a cardinal orientation stimulus and an oblique orientation stimulus
+cardinal_idx = get(np.argmin(np.abs(stim_list - np.pi))).item()
+oblique_idx = get(np.argmin(np.abs(stim_list - np.pi / 4))).item()
+
+# Plot one example of stimulus response
+plt.plot(get(model_ndr.theta), get(all_ndr_resps[oblique_idx, :, 0]), label="Oblique")
+plt.plot(get(model_ndr.theta), get(all_ndr_resps[cardinal_idx, :, 0]), label="Cardinal")
+plt.gca().set_prop_cycle(None)
+plt.plot(get(model_ndr.theta), get(all_idr_resps[oblique_idx, :, 0]), label="Oblique IDR", linestyle=":")
+plt.plot(get(model_ndr.theta), get(all_idr_resps[cardinal_idx, :, 0]), label="Cardinal IDR", linestyle=":")
 plt.legend()
 plt.show()
 
 # %%
-stim_list[135] * 180 / np.pi
+model_idr.run(stim_list[cardinal_idx])
+animate_model_example("idr_180", stim_list[cardinal_idx], model_idr.r, model_idr.theta, 0)
 
-a = all_ndr_resps[135, :, :].var(0).mean()
-aa = all_ndr_resps[90, :, :].var(0).mean()
+# %% calculate bias and variance
+from scipy.stats import circvar
+
+stimuli = np.linspace(0, 2 * np.pi, 101)
+wide_bias = np.zeros_like(stimuli)
+sharp_bias = np.zeros_like(stimuli)
+wide_variance = np.zeros_like(stimuli)
+sharp_variance = np.zeros_like(stimuli)
+for i, stim in enumerate(tqdm(stimuli)):
+    wide_fr = np.squeeze(model_idr.run(stim))
+    sharp_fr = np.squeeze(model_ndr.run(stim))
+    wide_choices = np.random.choice(model_idr.theta, replace=True,
+                                    p=(wide_fr - wide_fr.min()) / (wide_fr - wide_fr.min()).sum(),
+                                    size=1000)
+    sharp_choices = np.random.choice(model_ndr.theta, replace=True,
+                                     p=(sharp_fr - sharp_fr.min()) / (sharp_fr - sharp_fr.min()).sum(),
+                                     size=1000)
+
+    wide_bias[i] = circ_distance(wide_choices, stim).mean()
+    sharp_bias[i] = circ_distance(sharp_choices, stim).mean()
+    wide_variance[i] = circvar(get(wide_choices))
+    sharp_variance[i] = circvar(get(sharp_choices))
+smooth_wide_bias = scipy.ndimage.gaussian_filter1d(get(wide_bias), 0.75)
+smooth_sharp_bias = scipy.ndimage.gaussian_filter1d(get(sharp_bias), 0.75)
+smooth_wide_variance = scipy.ndimage.gaussian_filter1d(get(wide_variance), 0.75)
+smooth_sharp_variance = scipy.ndimage.gaussian_filter1d(get(sharp_variance), 0.75)
 # %%
-stim1 = np.pi / 6
-stim2 = np.pi / 4
-idr_resps_pi2 = model_idr.run(stim1)
-idr_resps_pi = model_idr.run(stim2)
+fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+ax.plot(get(stimuli), smooth_wide_bias, color=ASD_COLOR, label="Wide", linewidth=3)
+ax.plot(get(stimuli), smooth_sharp_bias, color=NT_COLOR, label="Sharp", linewidth=3)
+# set the xticks to 0-2pi in pi/4 increments
+ax.set_xticks([0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi, 5 * np.pi / 4, 3 * np.pi / 2, 7 * np.pi / 4, 2 * np.pi])
+ax.set_xticklabels([r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$",
+                    r"$\frac{5\pi}{4}$", r"$\frac{3\pi}{2}$", r"$\frac{7\pi}{4}$", r"$2\pi$"])
+# plot gray dotted vlines at cardinal orientations, and a solid black like at 0
+ax.vlines([0, np.pi / 2, np.pi, 3 * np.pi / 2, 2 * np.pi], get(wide_bias.min()).item(), get(wide_bias.max()).item(),
+          color='gray', linestyle='--',
+          lw=2)
+ax.hlines(0, 0, 2 * np.pi, color='black', linestyle='-', lw=1)
 
-plt.plot(get(model_idr.theta), get(idr_resps_pi[:, 0]), label="stim 1")
-plt.plot(get(model_idr.theta), get(idr_resps_pi2[:, 0]), label="stim 2")
-plt.vlines([stim1, stim2], 0, 1, linestyles="--")
-plt.legend()
+ax.set_xlabel("Stimulus", fontsize=24)
+ax.set_ylabel("Bias", fontsize=24)
+# set yticklabels to a larger font size
+ax.set_yticklabels(np.round(ax.get_yticks(), 2), fontsize=24)
+ax.legend(fontsize=20)
+
+# remove the spines of ax4
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+fig.tight_layout()
+plt.savefig("bias_ring_model.pdf")
 plt.show()
 # %%
-model_ndr.run(stim_list[90])
-animate_model_example("ndr_90", stim_list[90], model_ndr.r, model_ndr.theta, 0)
+fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+ax.plot(get(stimuli), get(wide_variance), color=ASD_COLOR, label="Wide", linewidth=3)
+ax.plot(get(stimuli), get(sharp_variance), color=NT_COLOR, label="Sharp", linewidth=3)
+# set the xticks to 0-2pi in pi/4 increments
+ax.set_xticks([0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi, 5 * np.pi / 4, 3 * np.pi / 2, 7 * np.pi / 4, 2 * np.pi])
+ax.set_xticklabels([r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$",
+                    r"$\frac{5\pi}{4}$", r"$\frac{3\pi}{2}$", r"$\frac{7\pi}{4}$", r"$2\pi$"])
+# plot gray dotted vlines at cardinal orientations, and a solid black like at 0
+ax.vlines([0, np.pi / 2, np.pi, 3 * np.pi / 2, 2 * np.pi], get(sharp_variance.min()).item(),
+          get(wide_variance.max()).item(), color='gray', linestyle='--',
+          lw=2)
+# ax.hlines(0, 0, 2*np.pi, color='black', linestyle='-', lw=1)
+
+ax.set_xlabel("Stimulus", fontsize=24)
+ax.set_ylabel("Variance", fontsize=24)
+# set yticklabels to a larger font size
+ax.set_yticklabels(np.round(ax.get_yticks(), 2), fontsize=24)
+ax.legend(fontsize=20)
+
+# remove the spines of ax4
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+fig.tight_layout()
+plt.savefig("variance_ring_model.pdf")
+plt.show()
