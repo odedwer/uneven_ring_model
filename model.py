@@ -188,7 +188,7 @@ n_stim = 500
 np.random.seed(0)
 normalize_fr = True
 recalculate_connectivity = True
-params = dict(j0=0.5, j1=0.5, h0=0.5, h1=0.5, N=360, lr=1e-2, T=1, dt=1e-2, noise=0., stim_noise=np.pi / 180,
+params = dict(j0=0.5, j1=0.5, h0=0.5, h1=0.5, N=360, lr=1e-2, T=1, dt=1e-2, noise=0., stim_noise=0.,
               count_thresh=0.5, width_scaling=1.5, n_sims=1)
 widths_ndr = [kappa_sharp] * N  # get_tuning_widths(N, kappa, precision=18, min_val=0.3)
 widths_idr = [kappa_wide] * N  # get_tuning_widths(N, 3, precision=18, min_val=0.66)
@@ -286,7 +286,7 @@ axes[1].set_title("IDR")
 axes[2].set_title("NDR")
 for ax in axes:
     ax.set_xticks([0,np.pi/4,np.pi / 2, 3*np.pi/4, np.pi, 5*np.pi/4, 3*np.pi/2, 7*np.pi/4],
-                  [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$2\pi$",
+                  [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$pi$",
                    r"$\frac{5\pi}{4}$", r"$\frac{3\pi}{2}$", r"$\frac{7\pi}{4}$"]
                   )
 
