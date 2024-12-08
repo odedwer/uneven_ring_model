@@ -72,8 +72,7 @@ def get_location_based_increase(N, precision, min_val=0.5):
 
 class Model:
     def __init__(self, j0, j1, h0, h1, N, gains, tuning_widths, tuning_func, lr, count_thresh=0, width_scaling=1, T=1,
-                 dt=1e-2, noise=0.,
-                 n_sims=1000):
+                 dt=1e-2, noise=0., stim_noise=0., n_sims=1000):
         self.j0 = j0
         self.j1 = j1
         self.h0 = h0
@@ -95,6 +94,7 @@ class Model:
         self.width_scaling = width_scaling
         self.count_thresh = count_thresh
         self.base_factor = self.get_near_factor()
+        self.stim_noise = stim_noise
         self.stim_history = []
 
     def deterministic_func(self, y, stim):
@@ -107,8 +107,11 @@ class Model:
 
     def run(self, stim):
         self.stim_history.append(stim)
+        # add noise to the stimulus, different noise for each neuron and time point
+
+        noisy_stim = stim + np.random.normal(0, self.stim_noise, (self.time.size, self.N))
         for i in range(1, self.time.size):
-            self.r[i] = self.euler_maruyama(self.r[i - 1], stim, i)
+            self.r[i] = self.euler_maruyama(self.r[i - 1], noisy_stim[i], i)
         return self.r[-1].copy()
 
     def update(self, normalize_fr=True, recalculate_connectivity=False):
@@ -157,12 +160,12 @@ def get_natural_stats_distribution(n_points, peaks=None, kappa=6):
 N = 360
 kappa_sharp = 8
 kappa_wide = 2
-n_stim = 500
+n_stim = 300
 np.random.seed(0)
 normalize_fr = True
 recalculate_connectivity = True
-params = dict(j0=0.5, j1=0.5, h0=0.5, h1=0.5, N=360, lr=1e-2, T=1, dt=1e-2, noise=0, count_thresh=0.5,
-              width_scaling=1.5, n_sims=1)
+params = dict(j0=0.5, j1=0.5, h0=0.5, h1=0.5, N=360, lr=1e-2, T=1, dt=1e-2, noise=0., stim_noise=np.pi / 180,
+              count_thresh=0.5, width_scaling=1.5, n_sims=1)
 widths_ndr = [kappa_sharp] * N  # get_tuning_widths(N, kappa, precision=18, min_val=0.3)
 widths_idr = [kappa_wide] * N  # get_tuning_widths(N, 3, precision=18, min_val=0.66)
 # widths_idr = [kappa // 2] * N
@@ -170,6 +173,10 @@ gains = [1] * N  # get_location_based_increase(N, precision=6, min_val=0.75)
 
 model_idr = Model(gains=gains, tuning_widths=widths_idr, tuning_func=vm_like, **params)
 model_ndr = Model(gains=gains, tuning_widths=widths_ndr, tuning_func=vm_like, **params)
+
+model_idr_no_update = Model(gains=gains, tuning_widths=widths_idr, tuning_func=vm_like, **params)
+model_ndr_no_update = Model(gains=gains, tuning_widths=widths_ndr, tuning_func=vm_like, **params)
+
 
 all_idr_resps = []
 all_ndr_resps = []
@@ -195,15 +202,100 @@ all_idr_theta = np.array(all_idr_theta)
 all_ndr_theta = np.array(all_ndr_theta)
 all_idr_tuning = np.array(all_idr_tuning)
 all_ndr_tuning = np.array(all_ndr_tuning)
+# %% Test the oblique effect
+oblique_stim = np.pi / 4
+cardinal_stim = np.pi / 2
+# run the IDR and NDR models on the oblique and cardinal stimuli
+oblique_idr_resps = model_idr.run(oblique_stim)
+oblique_ndr_resps = model_ndr.run(oblique_stim)
+cardinal_idr_resps = model_idr.run(cardinal_stim)
+cardinal_ndr_resps = model_ndr.run(cardinal_stim)
+
+oblique_idr_no_update_resps = model_idr_no_update.run(oblique_stim)
+oblique_ndr_no_update_resps = model_ndr_no_update.run(oblique_stim)
+cardinal_idr_no_update_resps = model_idr_no_update.run(cardinal_stim)
+cardinal_ndr_no_update_resps = model_ndr_no_update.run(cardinal_stim)
+
+
+# normalize the responses such that they sum to 1
+for resp in [oblique_idr_resps, oblique_ndr_resps, cardinal_idr_resps, cardinal_ndr_resps,
+             oblique_idr_no_update_resps, oblique_ndr_no_update_resps, cardinal_idr_no_update_resps,
+             cardinal_ndr_no_update_resps]:
+    resp -= resp.min()
+    resp /= resp.sum()
+
+# Calculate the distribution of 1000 choices made based on the firing rates
+oblique_idr_choices = np.random.choice(np.squeeze(model_idr.theta), replace=True,
+                                       p=np.squeeze(oblique_idr_resps), size=10000)
+cardinal_idr_choices = np.random.choice(np.squeeze(model_idr.theta), replace=True,
+                                        p=np.squeeze(cardinal_idr_resps), size=10000)
+
+oblique_ndr_choices = np.random.choice(np.squeeze(model_ndr.theta), replace=True,
+                                       p=np.squeeze(oblique_ndr_resps), size=10000)
+cardinal_ndr_choices = np.random.choice(np.squeeze(model_ndr.theta), replace=True,
+                                        p=np.squeeze(cardinal_ndr_resps), size=10000)
+
+oblique_idr_no_update_choices = np.random.choice(np.squeeze(model_idr_no_update.theta), replace=True,
+                                                    p=np.squeeze(oblique_idr_no_update_resps), size=10000)
+cardinal_idr_no_update_choices = np.random.choice(np.squeeze(model_idr_no_update.theta), replace=True,
+                                                    p=np.squeeze(cardinal_idr_no_update_resps), size=10000)
+
+oblique_ndr_no_update_choices = np.random.choice(np.squeeze(model_ndr_no_update.theta), replace=True,
+                                                    p=np.squeeze(oblique_ndr_no_update_resps), size=10000)
+cardinal_ndr_no_update_choices = np.random.choice(np.squeeze(model_ndr_no_update.theta), replace=True,
+                                                    p=np.squeeze(cardinal_ndr_no_update_resps), size=10000)
+
+# quantify the width of each distribution
+oblique_idr_width = circvar(get(oblique_idr_choices))
+cardinal_idr_width = circvar(get(cardinal_idr_choices))
+print("Variance ratio oblique/cardinal IDR:",oblique_idr_width/cardinal_idr_width)
+oblique_ndr_width = circvar(get(oblique_ndr_choices))
+cardinal_ndr_width = circvar(get(cardinal_ndr_choices))
+print("Variance ratio oblique/cardinal NDR:",oblique_ndr_width/cardinal_ndr_width)
+
+oblique_idr_no_update_width = circvar(get(oblique_idr_no_update_choices))
+print("Variance ratio no update/update oblique IDR:", oblique_idr_no_update_width / oblique_idr_width)
+cardinal_idr_no_update_width = circvar(get(cardinal_idr_no_update_choices))
+print("Variance ratio no update/update cardinal IDR:", cardinal_idr_no_update_width / cardinal_idr_width)
+oblique_ndr_no_update_width = circvar(get(oblique_ndr_no_update_choices))
+print("Variance ratio no update/update oblique NDR:", oblique_ndr_no_update_width / oblique_ndr_width)
+cardinal_ndr_no_update_width = circvar(get(cardinal_ndr_no_update_choices))
+print("Variance ratio no update/update cardinal NDR:", cardinal_ndr_no_update_width / cardinal_ndr_width)
+
+
+# plot the distributions on polar plots
+fig, ax = plt.subplots(2, 2, subplot_kw={'projection': 'polar'}, figsize=(10, 10))
+ax[0, 0].hist(get(oblique_idr_no_update_choices), bins=120, density=True, alpha=0.3, color='black')
+ax[0, 0].hist(get(oblique_idr_choices), bins=120, density=True, alpha=0.5, color=ASD_COLOR)
+ax[0, 0].set_title("Oblique IDR")
+ax[0, 1].hist(get(cardinal_idr_no_update_choices), bins=120, density=True, alpha=0.3, color='black')
+ax[0, 1].hist(get(cardinal_idr_choices), bins=120, density=True, alpha=0.5, color=ASD_COLOR)
+ax[0, 1].set_title("Cardinal IDR")
+ax[1, 0].hist(get(oblique_ndr_no_update_choices), bins=120, density=True, alpha=0.3, color='black')
+ax[1, 0].hist(get(oblique_ndr_choices), bins=120, density=True, alpha=0.5, color=NT_COLOR)
+ax[1, 0].set_title("Oblique NDR")
+ax[1, 1].hist(get(cardinal_ndr_no_update_choices), bins=120, density=True, alpha=0.3, color='black')
+ax[1, 1].hist(get(cardinal_ndr_choices), bins=120, density=True, alpha=0.5, color=NT_COLOR)
+ax[1, 1].set_title("Cardinal NDR")
+# add the oblique\cardinal stimulus in a gray dotted line
+ax[0, 0].vlines(oblique_stim, 0, 1, color='gray', linestyle='--')
+ax[0, 1].vlines(cardinal_stim, 0, 1, color='gray', linestyle='--')
+ax[1, 0].vlines(oblique_stim, 0, 1, color='gray', linestyle='--')
+ax[1, 1].vlines(cardinal_stim, 0, 1, color='gray', linestyle='--')
+plt.tight_layout()
+plt.show()
+
+
+
 # %% plot the initial value of the tuning widths and the final value of the tuning widths
-plt.plot(model_idr.theta.get(), model_idr.tuning_widths.get(), color=ASD_COLOR, label="IDR")
-plt.plot(model_ndr.theta.get(), model_ndr.tuning_widths.get(), color=NT_COLOR, label="NDR")
+plt.plot(model_idr.theta.get(), model_idr.tuning_widths.get()/kappa_wide, color=ASD_COLOR, label="IDR")
+plt.plot(model_ndr.theta.get(), model_ndr.tuning_widths.get()/kappa_sharp, color=NT_COLOR, label="NDR")
 # set xlabels to be in radians, 0 till 2pi
 plt.xticks([0, np.pi / 2, np.pi, 3 * np.pi / 2, 2 * np.pi],
            ["0", r"$\frac{\pi}{2}$", r"$\pi$", r"$\frac{3\pi}{2}$", r"$2\pi$"])
 plt.xlabel("Preferred Orientation")
-plt.ylabel(r"Tuning precision ($\kappa$)")
-plt.hlines([kappa_sharp, kappa_wide], 0, 2 * np.pi, linestyles="--", colors='gray')
+plt.ylabel(r"Tuning precision relative to initial precision($\kappa$)")
+plt.hlines(1, 0, 2 * np.pi, linestyles="--", colors='gray')
 plt.legend()
 plt.show()
 # %%
