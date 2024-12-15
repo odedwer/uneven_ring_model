@@ -14,15 +14,16 @@ def _prep_model_for_main_plot(model, oblique_stim, cardinal_stim, choice_thresh,
     theta = get(model.theta)
     oblique_choices = get_choices(model, oblique_stim, n_choices=10000, choice_thresh=choice_thresh, sim_idx=sim_idx)
     cardinal_choices = get_choices(model, cardinal_stim, n_choices=10000, choice_thresh=choice_thresh, sim_idx=sim_idx)
-    try:
-        oblique_choices_width = get_choice_distribution_width(oblique_choices)
-    except ValueError:
-        oblique_choices_width = np.nan
-    try:
-        cardinal_choices_width = get_choice_distribution_width(cardinal_choices)
-    except ValueError:
-        cardinal_choices_width = np.nan
-    return theta[sim_idx], oblique_choices, cardinal_choices, oblique_choices_width, cardinal_choices_width
+    # try:
+    #     oblique_choices_width = get_choice_distribution_width(oblique_choices)
+    # except ValueError:
+    #     oblique_choices_width = np.nan
+    # try:
+    #     cardinal_choices_width = get_choice_distribution_width(cardinal_choices)
+    # except ValueError:
+    #     cardinal_choices_width = np.nan
+    return theta[
+        sim_idx], oblique_choices, cardinal_choices, None, None  # oblique_choices_width, cardinal_choices_width
 
 
 def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None, sim_idx=0):
@@ -30,15 +31,18 @@ def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None
         oblique_stim = 5 * np.pi / 4
         cardinal_stim = np.pi
 
-        idr_theta, oblique_idr_choices, cardinal_idr_choices, oblique_idr_choices_width, cardinal_idr_choices_width = _prep_model_for_main_plot(
+        idr_theta, oblique_idr_choices, cardinal_idr_choices, _, _ = _prep_model_for_main_plot(
             model_idr, oblique_stim, cardinal_stim, choice_thresh)
-        ndr_theta, oblique_ndr_choices, cardinal_ndr_choices, oblique_ndr_choices_width, cardinal_ndr_choices_width = _prep_model_for_main_plot(
+        ndr_theta, oblique_ndr_choices, cardinal_ndr_choices, _, _ = _prep_model_for_main_plot(
             model_ndr, oblique_stim, cardinal_stim, choice_thresh)
 
         bias_idr, variance_idr, stimuli, bias_ci_idr = get_bias_variance(model_idr, sigma=1,
                                                                          choice_thresh=choice_thresh, sim_idx=sim_idx)
         bias_ndr, variance_ndr, _, bias_ci_ndr = get_bias_variance(model_ndr, sigma=1, choice_thresh=choice_thresh,
                                                                    sim_idx=sim_idx)
+
+        stimuli_oblique_idx = np.argmin(np.abs(stimuli - oblique_stim))
+        stimuli_cardinal_idx = np.argmin(np.abs(stimuli - cardinal_stim))
 
         plt.rcParams.update(
             {
@@ -55,8 +59,8 @@ def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None
         gs = GridSpec(3, n_cols, figure=fig, height_ratios=[1, 0.7, 0.7])
 
         row1_width = n_cols // 4
-        ax1 = fig.add_subplot(gs[0, 0:row1_width])
-        ax2 = fig.add_subplot(gs[0, row1_width:2 * row1_width])
+        ax1 = fig.add_subplot(gs[0, 0:row1_width], projection='polar')
+        ax2 = fig.add_subplot(gs[0, row1_width:2 * row1_width], projection='polar')
         # ax3 = fig.add_subplot(gs[0, 2 * row1_width:3 * row1_width], projection='polar')
         ax4 = fig.add_subplot(gs[0, 2 * row1_width + 1:])
 
@@ -73,7 +77,7 @@ def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None
         # plot the distribution of the stimuli
 
         axes = [ax1, ax2, ax5, ax6, ax7, ax8]
-        axes[0].hist(idr_theta, bins=90, density=True, alpha=0.5, color=ASD_COLOR,label="Preferred")
+        axes[0].hist(idr_theta, bins=90, density=True, alpha=0.5, color=ASD_COLOR, label="Preferred")
         axes[0].hist(get(stim_list)[:, sim_idx], bins=90, density=True, alpha=0.5, color="gray", label="Stimuli")
         axes[0].legend()
         axes[1].hist(ndr_theta, bins=90, density=True, alpha=0.5, color=NT_COLOR, label="Preferred")
@@ -116,18 +120,19 @@ def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None
                 pass
 
         # add the width of the choices to the plot in text
-        plot_choice_hist(ax5, oblique_idr_choices, oblique_idr_choices_width, ASD_COLOR, "Oblique IDR")
-        ax5.text(0.5, 0.75, f"Width: {oblique_idr_choices.var().item():.2g}", ha='center', va='center',
+        plot_choice_hist(ax5, oblique_idr_choices, None, ASD_COLOR, "Oblique IDR")
+
+        ax5.text(0.5, 0.75, f"Width: {get(variance_idr[get(stimuli_oblique_idx)]):.2g}", ha='center', va='center',
                  fontsize=12,
                  fontweight='bold', transform=ax5.transAxes)
-        plot_choice_hist(ax6, cardinal_idr_choices, cardinal_idr_choices_width, ASD_COLOR, "Cardinal IDR")
-        ax6.text(0.5, 0.75, f"Width: {cardinal_idr_choices.var().item():.2g}", ha='center', va='center',
+        plot_choice_hist(ax6, cardinal_idr_choices, None, ASD_COLOR, "Cardinal IDR")
+        ax6.text(0.5, 0.75, f"Width: {get(variance_idr[get(stimuli_cardinal_idx)]):.2g}", ha='center', va='center',
                  fontsize=12, fontweight='bold', transform=ax6.transAxes)
-        plot_choice_hist(ax7, oblique_ndr_choices, oblique_ndr_choices_width, NT_COLOR, "Oblique NDR")
-        ax7.text(0.5, 0.75, f"Width: {oblique_ndr_choices.var().item():.2g}", ha='center', va='center',
+        plot_choice_hist(ax7, oblique_ndr_choices, None, NT_COLOR, "Oblique NDR")
+        ax7.text(0.5, 0.75, f"Width: {get(variance_ndr[get(stimuli_oblique_idx)]):.2g}", ha='center', va='center',
                  fontsize=12, fontweight='bold', transform=ax7.transAxes)
-        plot_choice_hist(ax8, cardinal_ndr_choices, cardinal_ndr_choices_width, NT_COLOR, "Cardinal NDR")
-        ax8.text(0.5, 0.75, f"Width: {cardinal_ndr_choices.var().item():.2g}", ha='center', va='center',
+        plot_choice_hist(ax8, cardinal_ndr_choices, None, NT_COLOR, "Cardinal NDR")
+        ax8.text(0.5, 0.75, f"Width: {get(variance_ndr[get(stimuli_cardinal_idx)]):.2g}", ha='center', va='center',
                  fontsize=12, fontweight='bold', transform=ax8.transAxes)
 
         ax6.yaxis.set_tick_params(labelleft=False)
@@ -142,9 +147,9 @@ def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None
 
         ax9.plot(get(stimuli), bias_idr, color=ASD_COLOR, label="IDR", linewidth=3)
         # plot shaded ci area
-        # ax9.fill_between(get(stimuli), bias_idr+bias_ci_idr, bias_idr-bias_ci_idr, color=ASD_COLOR, alpha=0.3)
+        ax9.fill_between(get(stimuli), bias_ci_idr[:,0], bias_ci_idr[:,1], color=ASD_COLOR, alpha=0.3)
         ax9.plot(get(stimuli), bias_ndr, color=NT_COLOR, label="NDR", linewidth=3)
-        # ax9.fill_between(get(stimuli), bias_ndr+bias_ci_ndr, bias_ndr-bias_ci_ndr, color=NT_COLOR, alpha=0.3)
+        ax9.fill_between(get(stimuli), bias_ci_ndr[:,0], bias_ci_ndr[:,1], color=NT_COLOR, alpha=0.3)
         # set the xticks to 0-2pi in pi/4 increments
         ax9.set_xticks([0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi],
                        [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$"]

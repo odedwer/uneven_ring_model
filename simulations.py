@@ -10,17 +10,17 @@ import viz
 from importlib import reload
 
 params = {
-    "j0": 0,
-    "j1": 2,
+    "j0": 0.2,
+    "j1": 1.9,
     "h0": 1,
     "h1": 1.5,
     "lr": 0.01,
     "noise": 0.0,
     "stim_noise": 0,
-    "count_thresh": 0.97,
+    "count_thresh": 0.90,
     "width_scaling": 1,
     "n_stim": 350,
-    "N": 420,
+    "N": 210,
     "T": 1.5,
     "dt": 1e-2,
     "n_sims": 1,
@@ -29,7 +29,7 @@ params = {
     "limit_width": False
 }
 
-np.random.seed(16)
+np.random.seed(42)
 stim_list = utils.get_natural_stats_distribution(int(params["n_stim"]), kappa=6, n_sims=params['n_sims'])
 
 model_idr, idr_learning_thetas, idr_learning_tuning_widths, idr_learning_connectivity = train_model(
