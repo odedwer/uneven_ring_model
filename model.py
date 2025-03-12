@@ -286,11 +286,11 @@ def get_hdi_indices(dist, confidence=0.05):
 # %%
 N = 420
 kappa_sharp = 8
-kappa_wide = 2
+kappa_wide = 4
 n_stim = 500
 np.random.seed(42)
 normalize_fr = True
-params = dict(j0=0.2, j1=0.9, h0=0.1, h1=0.5, N=N, lr=1e-2, T=1, dt=1e-2, noise=0., stim_noise=0.,
+params = dict(j0=0.1, j1=0.9, h0=0.1, h1=0.5, N=N, lr=1e-2, T=1, dt=1e-2, noise=0.1*np.pi/180, stim_noise=1*np.pi/180,
               count_thresh=0.90, width_scaling=1, n_sims=1)
 widths_ndr = [kappa_sharp] * N  # get_tuning_widths(N, kappa, precision=18, min_val=0.3)
 widths_idr = [kappa_wide] * N  # get_tuning_widths(N, 3, precision=18, min_val=0.66)
@@ -364,7 +364,7 @@ def get_choice_distribution_width(choices, bins=100):
     return width
 
 
-get_choice_distribution_width(oblique_idr_choices)/get_choice_distribution_width(cardinal_idr_choices)
+print("oblique_idr/cardinal_idr",get_choice_distribution_width(oblique_idr_choices)/get_choice_distribution_width(cardinal_idr_choices))
 
 
 get_choice_distribution_width(oblique_ndr_choices)/get_choice_distribution_width(cardinal_ndr_choices)
