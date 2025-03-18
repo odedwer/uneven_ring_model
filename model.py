@@ -5,6 +5,7 @@ import scipy
 import cupy as np
 import matplotlib.pyplot as plt
 import os
+
 from scipy.stats import circvar, circmean
 from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
@@ -70,7 +71,7 @@ def animate_tuning_widths(name, idr_tuning_widths, ndr_tuning_widths, idr_theta,
     # set xlabels to be in radians, 0 till 2pi
     ax.set_xticks([0, np.pi / 2, np.pi, 3 * np.pi / 2, 2 * np.pi],
                   ["0", r"$\frac{\pi}{2}$", r"$\pi$", r"$\frac{3\pi}{2}$", r"$2\pi$"])
-    ax.set_ylabel("Tuning precision relative\nto initial precision ($\\kappa$)", fontsize=14, fontweight='bold')
+    ax.set_ylabel("Relative change in width", fontsize=14, fontweight='bold')
     ax.hlines(0, 0, 2 * np.pi, linestyles="--", colors='gray')
     ax.legend()
     ax.set_ylim(0, max((ndr_tuning_widths / kappa_sharp).max(), (idr_tuning_widths / kappa_wide).max()))
@@ -189,20 +190,24 @@ def get_bias_variance(model, sigma=0.75, seed=97):
     np.random.seed(seed)
     stimuli = np.linspace(0, np.pi, 181)
     bias = np.zeros_like(stimuli)
+    bias_ci = np.zeros(stimuli.shape)
     variance = np.zeros_like(stimuli)
     for i, stim in enumerate(tqdm(stimuli)):
         fr = np.squeeze(model.run(stim))
         choices = np.random.choice(model.theta, replace=True,
                                    p=(fr - fr.min()) / (fr - fr.min()).sum(),
                                    size=10000)
-        bias[i] = circ_distance(choices, stim).mean()
+        b = circ_distance(choices, stim)
+        bias[i] = b.mean()
+        bias_ci[i] = b.std()
         variance[i] = circvar(get(choices))
     if sigma > 0:
         smooth_bias = scipy.ndimage.gaussian_filter1d(get(bias), sigma)
+        smooth_bias_ci = scipy.ndimage.gaussian_filter1d(get(bias_ci), sigma)
         smooth_variance = scipy.ndimage.gaussian_filter1d(get(variance), sigma)
     else:
-        smooth_bias, smooth_variance = get(bias), get(variance)
-    return smooth_bias, smooth_variance, stimuli
+        smooth_bias, smooth_variance, smooth_bias_ci = get(bias), get(variance), get(bias_ci)
+    return smooth_bias, smooth_variance, stimuli, smooth_bias_ci
 
 
 def get_choices(model, stim, n_choices=10000, seed=97):
@@ -286,11 +291,11 @@ def get_hdi_indices(dist, confidence=0.05):
 # %%
 N = 420
 kappa_sharp = 8
-kappa_wide = 4
+kappa_wide = 2
 n_stim = 500
 np.random.seed(42)
 normalize_fr = True
-params = dict(j0=0.1, j1=0.9, h0=0.1, h1=0.5, N=N, lr=1e-2, T=1, dt=1e-2, noise=0.1*np.pi/180, stim_noise=1*np.pi/180,
+params = dict(j0=0.2, j1=0.9, h0=0.1, h1=0.5, N=N, lr=1e-2, T=1, dt=1e-2, noise=0., stim_noise=0.,
               count_thresh=0.90, width_scaling=1, n_sims=1)
 widths_ndr = [kappa_sharp] * N  # get_tuning_widths(N, kappa, precision=18, min_val=0.3)
 widths_idr = [kappa_wide] * N  # get_tuning_widths(N, 3, precision=18, min_val=0.66)
@@ -364,10 +369,10 @@ def get_choice_distribution_width(choices, bins=100):
     return width
 
 
-print("oblique_idr/cardinal_idr",get_choice_distribution_width(oblique_idr_choices)/get_choice_distribution_width(cardinal_idr_choices))
+print("oblique_idr/cardinal_idr",
+      get_choice_distribution_width(oblique_idr_choices) / get_choice_distribution_width(cardinal_idr_choices))
 
-
-get_choice_distribution_width(oblique_ndr_choices)/get_choice_distribution_width(cardinal_ndr_choices)
+get_choice_distribution_width(oblique_ndr_choices) / get_choice_distribution_width(cardinal_ndr_choices)
 
 get_choice_distribution_width(oblique_idr_no_update_choices)
 get_choice_distribution_width(cardinal_idr_no_update_choices)
@@ -398,8 +403,8 @@ print(f"Oblique NDR: {100 * (oblique_ndr_percent_close - oblique_ndr_no_update_p
 print(f"Cardinal NDR: {100 * (cardinal_ndr_percent_close - cardinal_ndr_no_update_percent_close)}")
 print(f"Cardinal-Oblique NDR: {100 * (cardinal_ndr_percent_close - oblique_ndr_percent_close)}")
 
-bias_idr, variance_idr, stimuli = get_bias_variance(model_idr, sigma=1)
-bias_ndr, variance_ndr, _ = get_bias_variance(model_ndr, sigma=1)
+bias_idr, variance_idr, stimuli, bias_ci_idr = get_bias_variance(model_idr, sigma=1)
+bias_ndr, variance_ndr, _, bias_ci_ndr = get_bias_variance(model_ndr, sigma=1)
 # %% Create a figure with the following subplots:
 # A) 3 polar plots for the distribution of stimuli, NDR theta and IDR theta
 # B) The precision of the IDR and NDR models as a function of the stimulus, divided by the initial precision
@@ -468,7 +473,7 @@ ax4.plot(model_ndr.theta.get(), model_ndr.tuning_widths.get() / kappa_sharp, col
 ax4.set_xticks([0, np.pi / 2, np.pi, 3 * np.pi / 2, 2 * np.pi],
                ["0", r"$\frac{\pi}{2}$", r"$\pi$", r"$\frac{3\pi}{2}$", r"$2\pi$"])
 ax4.text(0.5, -0.2, "Preferred Orientation", ha='center', va='center', fontsize=14, transform=ax4.transAxes)
-ax4.set_ylabel("Tuning precision relative\nto initial precision ($\\kappa$)", fontsize=14, fontweight='bold')
+ax4.set_ylabel("Relative change in width", fontsize=14, fontweight='bold')
 ax4.hlines(1, 0, 2 * np.pi, linestyles="--", colors='gray')
 ax4.legend()
 
@@ -552,7 +557,10 @@ ax7.vlines(oblique_stim, 0, 1, color='gray', linestyle='--')
 ax8.vlines(cardinal_stim, 0, 1, color='gray', linestyle='--')
 
 ax9.plot(get(stimuli), bias_idr, color=ASD_COLOR, label="IDR", linewidth=3)
+# plot shaded ci area
+# ax9.fill_between(get(stimuli), bias_idr+bias_ci_idr, bias_idr-bias_ci_idr, color=ASD_COLOR, alpha=0.3)
 ax9.plot(get(stimuli), bias_ndr, color=NT_COLOR, label="NDR", linewidth=3)
+# ax9.fill_between(get(stimuli), bias_ndr+bias_ci_ndr, bias_ndr-bias_ci_ndr, color=NT_COLOR, alpha=0.3)
 # set the xticks to 0-2pi in pi/4 increments
 ax9.set_xticks([0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi],
                [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$"]
@@ -601,3 +609,160 @@ plt.show()
 # %%
 # animate_tuning_widths("model", get(all_idr_tuning), get(all_ndr_tuning), get(all_idr_theta), get(all_ndr_theta),
 #                       kappa_wide, kappa_sharp)
+#%% plot the ndr model relative change in width
+fig, ax = plt.subplots(figsize=(7, 5))
+ax.plot(model_ndr.theta.get(), model_ndr.tuning_widths.get() / kappa_sharp, color=NT_COLOR, label="NDR", linewidth=3)
+# set xlabels to be in radians, 0 till 2pi
+ax.set_xticks([0, np.pi / 2, np.pi, 3 * np.pi / 2, 2 * np.pi],
+                ["0", r"$\frac{\pi}{2}$", r"$\pi$", r"$\frac{3\pi}{2}$", r"$2\pi$"])
+# plot gray dotted vlines at cardinal orientations, and a solid black like at 0
+ax.vlines(np.pi / 2, get(model_ndr.tuning_widths.get().min()).item()/ kappa_sharp,
+            get(model_ndr.tuning_widths.get().max()).item()/ kappa_sharp,
+            color='gray', linestyle='--', lw=2)
+ax.set_xlim([0, np.pi])
+ax.hlines(1, 0, 2 * np.pi, linestyles="--", colors='black')
+ax.set_xlabel("Preferred Orientation")
+ax.set_ylabel("Relative change in width")
+plt.tight_layout()
+plt.show()
+
+#%% plot the tuning curve of the NDR model at pi/2
+fig, ax = plt.subplots(figsize=(6,4))
+# ax.axis("off")
+# plot one gaussian with high variance in ASD_COLOR and one with low variance in NT_COLOR
+x = np.linspace(-np.pi, np.pi, 1000)
+max_tuning = model_ndr.tuning_func(x=x,kappa=model_ndr.tuning_widths.max().item())
+min_tuning = model_ndr.tuning_func(x=x,kappa=model_ndr.tuning_widths.min().item())
+
+ax.plot(get(x), get(max_tuning), color=NT_COLOR, linewidth=3)
+ax.plot(get(x), get(min_tuning), color=NT_COLOR, linewidth=3, linestyle="--")
+ax.set_xticks([-np.pi, -np.pi/2, 0, np.pi/2, np.pi],
+                ["$-\pi$", r"$-\frac{\pi}{2}$", "$0$", r"$\frac{\pi}{2}$", "$\pi$"])
+
+ax.set_xlabel("Orientation")
+ax.set_ylabel("Activation")
+plt.tight_layout()
+plt.show()
+# %%
+fig, ax = plt.subplots()
+ax.axis("off")
+# plot one gaussian with high variance in ASD_COLOR and one with low variance in NT_COLOR
+x = get(np.linspace(-np.pi, np.pi, 1000))
+y1 = scipy.stats.vonmises.pdf(x, kappa=kappa_wide)
+y2 = scipy.stats.vonmises.pdf(x, kappa=kappa_sharp)
+ax.plot(x, y1, color=ASD_COLOR, linewidth=3)
+ax.plot(x, y2, color=NT_COLOR, linewidth=3)
+plt.savefig("tuning_curve_illustration.pdf")
+
+#%% plot ndr_oblique_choices and ndr_cardinal_choices histograms in two separate subplots, and add a text with the distribution width
+fig, axes = plt.subplots(1, 2, figsize=(8, 5),sharey=True)
+plot_choice_hist(axes[1], oblique_ndr_choices, oblique_ndr_percent_close, oblique_ndr_no_update_percent_close,
+                 NT_COLOR, "Oblique NDR")
+axes[1].text(0.25, 0.75, f"Width: {get_choice_distribution_width(oblique_ndr_choices):.2f}", ha='center', va='center',
+                fontsize=12, fontweight='bold', transform=axes[1].transAxes)
+# add dotted gray line on the stimulus
+axes[1].vlines(oblique_stim, 0, 1, color='gray', linestyle='--', linewidths=3)
+# add dotted red line on the average choice
+# axes[1].vlines(get(oblique_ndr_choices.mean()), 0, 1, color='red', linestyle='--', linewidths=1)
+axes[0].set_ylabel("Density")
+plot_choice_hist(axes[0], cardinal_ndr_choices, cardinal_ndr_percent_close, cardinal_ndr_no_update_percent_close,
+                 NT_COLOR, "Cardinal NDR")
+axes[0].text(0.25, 0.75, f"Width: {get_choice_distribution_width(cardinal_ndr_choices):.2f}", ha='center', va='center',
+                fontsize=12, fontweight='bold', transform=axes[0].transAxes)
+axes[0].vlines(cardinal_stim, 0, 1, color='gray', linestyle='--', linewidths=3)
+# add dotted red line on the average choice
+# axes[0].vlines(get(cardinal_ndr_choices.mean()), 0, 1, color='red', linestyle='--', linewidths=1)
+for ax in axes:
+    ax.set_xlabel("Decoded Stimulus")
+    # set xticks with 1/4 pi intervals from 0 to 2pi
+    ax.set_xticks([0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi, 5 * np.pi / 4, 3 * np.pi / 2, 7 * np.pi / 4],
+                    [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$",
+                     r"$\frac{5\pi}{4}$", r"$\frac{3\pi}{2}$", r"$\frac{7\pi}{4}$"]
+                    )
+plt.tight_layout()
+plt.show()
+#%% plot the bias curve of the NDR model
+fig, ax = plt.subplots(figsize=(7, 5))
+ax.plot(get(stimuli), bias_ndr, color=NT_COLOR, label="NDR", linewidth=3)
+# set the xticks to 0-2pi in pi/4 increments
+ax.set_xticks([0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi],
+                [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$"],
+              fontsize=18
+                )
+# plot gray dotted vlines at cardinal orientations, and a solid black like at 0
+ax.vlines([0, np.pi / 2, np.pi], get(bias_ndr.min()).item(), get(bias_ndr.max()).item(),
+            color='gray', linestyle='--', lw=2)
+ax.hlines(0, 0, np.pi, color='black', linestyle='-', lw=1)
+ax.set_xlabel("Stimulus")
+ax.set_ylabel("Bias (rad)")
+plt.tight_layout()
+plt.show()
+
+# %%
+ndr_cr_bound = get(((1 + np.gradient(np.array(bias_ndr))) ** 2) / np.array(variance_ndr))
+idr_cr_bound = get(((1 + np.gradient(np.array(bias_idr))) ** 2) / np.array(variance_idr))
+# %%
+fig, axes = plt.subplots(3, 1, figsize=(12, 7), sharex=True)
+axes[0].plot(get(stimuli), bias_ndr, color=NT_COLOR, label="NDR", linewidth=3)
+axes[0].plot(get(stimuli), bias_idr, linestyle="--", color=ASD_COLOR, label="IDR", linewidth=3)
+axes[1].plot(get(stimuli), variance_ndr, color=NT_COLOR, label="NDR", linewidth=3)
+axes[1].plot(get(stimuli), variance_idr, color=ASD_COLOR, label="IDR", linestyle="--", linewidth=3)
+
+axes[2].plot(get(stimuli), ndr_cr_bound, color=NT_COLOR, label="NDR", linewidth=3)
+axes[2].plot(get(stimuli), idr_cr_bound, color=ASD_COLOR, label="IDR", linestyle="--", linewidth=3)
+axes[2].set_xticks([0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi],
+                   [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$"], fontsize=16
+                   )
+for ax, ylabel, (stim1, stim2) in zip(axes, ["Bias (rad)", "Variance (rad)", "FI"],
+                                      [(bias_ndr, bias_idr), (variance_ndr, variance_idr),
+                                       (ndr_cr_bound, idr_cr_bound)]):
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.set_yticks(ax.get_yticks(), np.round(ax.get_yticks(), 2), fontsize=16)
+    ax.set_ylabel(ylabel, fontsize=18)
+    ax.vlines([0, np.pi / 2, np.pi], min(get(stim1.min()).item(), get(stim2.min()).item()),
+              max(get(stim1.max()).item(), get(stim2.max()).item()), color='gray', linestyle='--', lw=2)
+    ax.legend(fontsize=16, loc="upper left")
+axes[-1].set_xlabel("Stimulus", fontsize=18)
+
+plt.tight_layout()
+plt.show()
+
+
+# %% plot sigmoid
+import numpy as np
+import matplotlib.pyplot as plt
+def hill(x, k, n):
+    return x ** n / (x ** n + k ** n)
+
+plt.rcParams.update({
+    "figure.figsize": (12, 8),
+    "axes.labelsize": 16,
+    "axes.labelweight": "bold",
+    "axes.titlesize": 18,
+    "axes.titleweight": 'bold',
+    "xtick.labelsize": 14,
+    "ytick.labelsize": 14,
+    "axes.spines.top": False,
+    "axes.spines.right": False,
+})
+
+x = np.linspace(0, 1, 1000)
+ndr = hill(x, 0.5, 16)
+idr = hill(x, 0.5, 6)
+fig, ax = plt.subplots(figsize=(5, 5))
+ax.plot(x, ndr, color=NT_COLOR, linewidth=4)
+ax.set_xlabel("Input")
+ax.set_ylabel("Output")
+plt.tight_layout()
+plt.savefig("hill1.svg")
+plt.show()
+
+fig, ax = plt.subplots(figsize=(5, 5))
+ax.plot(x, ndr, color=NT_COLOR, linewidth=4)
+ax.plot(x, idr, color=ASD_COLOR, linewidth=4)
+ax.set_xlabel("Input")
+ax.set_ylabel("Output")
+plt.tight_layout()
+plt.savefig("hill2.svg")
+plt.show()
