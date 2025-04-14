@@ -105,7 +105,7 @@ def get_location_based_increase(N, precision, min_val=0.5):
 
 class Model:
     def __init__(self, j0, j1, h0, h1, N, gains, tuning_widths, tuning_func, lr, count_thresh=0, width_scaling=1, T=1,
-                 dt=1e-2, noise=0., stim_noise=0., n_sims=1000):
+                 dt=1e-2, noise=0., stim_noise=0., n_sims=1000, nonlinearity=lambda x:x):
         self.j0 = j0
         self.j1 = j1
         self.h0 = h0
@@ -129,11 +129,12 @@ class Model:
         self.base_factor = self.get_near_factor()
         self.stim_noise = stim_noise
         self.stim_history = []
+        self.nonlinearity = nonlinearity
 
     def deterministic_func(self, y, stim):
-        return -y + ((self.h0 + self.h1 * self.tuning_func((self.theta - stim),
+        return -y + self.nonlinearity(((self.h0 + self.h1 * self.tuning_func((self.theta - stim),
                                                            self.tuning_widths)) * self.gains)[:,
-                    None] + self.J @ y
+                    None] + self.J @ y)
 
     def euler_maruyama(self, y, stim, i):
         return y + self.deterministic_func(y, stim) * self.dt + self._dW[i - 1]
@@ -193,10 +194,7 @@ def get_bias_variance(model, sigma=0.75, seed=97):
     bias_ci = np.zeros(stimuli.shape)
     variance = np.zeros_like(stimuli)
     for i, stim in enumerate(tqdm(stimuli)):
-        fr = np.squeeze(model.run(stim))
-        choices = np.random.choice(model.theta, replace=True,
-                                   p=(fr - fr.min()) / (fr - fr.min()).sum(),
-                                   size=10000)
+        choices = get_choices(model, stim, n_choices=10000, seed=seed)
         b = circ_distance(choices, stim)
         bias[i] = b.mean()
         bias_ci[i] = b.std()
@@ -212,7 +210,9 @@ def get_bias_variance(model, sigma=0.75, seed=97):
 
 def get_choices(model, stim, n_choices=10000, seed=97):
     np.random.seed(seed)
-    resps = model.run(stim)
+    resps = np.squeeze(model.run(stim))
+    # resps = resps*model.tuning_widths
+    resps[resps < 0] = 0
     prob = np.squeeze((resps - resps.min()) / (resps - resps.min()).sum())
     choices = np.random.choice(np.squeeze(model.theta), replace=True,
                                p=prob, size=n_choices)
@@ -325,8 +325,8 @@ for stim in tqdm(stim_list):
     all_ndr_theta.append(model_ndr.theta.copy())
     all_idr_tuning.append(model_idr.tuning_widths.copy())
     all_ndr_tuning.append(model_ndr.tuning_widths.copy())
-    model_idr.update(recalculate_connectivity=False)
-    model_ndr.update(recalculate_connectivity=False)
+    model_idr.update(recalculate_connectivity=True)
+    model_ndr.update(recalculate_connectivity=True)
 
 all_idr_resps = np.array(all_idr_resps)  # (stim, N, n_sims)
 all_ndr_resps = np.array(all_ndr_resps)
@@ -609,16 +609,16 @@ plt.show()
 # %%
 # animate_tuning_widths("model", get(all_idr_tuning), get(all_ndr_tuning), get(all_idr_theta), get(all_ndr_theta),
 #                       kappa_wide, kappa_sharp)
-#%% plot the ndr model relative change in width
+# %% plot the ndr model relative change in width
 fig, ax = plt.subplots(figsize=(7, 5))
 ax.plot(model_ndr.theta.get(), model_ndr.tuning_widths.get() / kappa_sharp, color=NT_COLOR, label="NDR", linewidth=3)
 # set xlabels to be in radians, 0 till 2pi
 ax.set_xticks([0, np.pi / 2, np.pi, 3 * np.pi / 2, 2 * np.pi],
-                ["0", r"$\frac{\pi}{2}$", r"$\pi$", r"$\frac{3\pi}{2}$", r"$2\pi$"])
-# plot gray dotted vlines at cardinal orientations, and a solid black like at 0
-ax.vlines(np.pi / 2, get(model_ndr.tuning_widths.get().min()).item()/ kappa_sharp,
-            get(model_ndr.tuning_widths.get().max()).item()/ kappa_sharp,
-            color='gray', linestyle='--', lw=2)
+              ["0", r"$\frac{\pi}{2}$", r"$\pi$", r"$\frac{3\pi}{2}$", r"$2\pi$"])
+# plot gray dotted vlines at cardiscatternal orientations, and a solid black like at 0
+ax.vlines(np.pi / 2, get(model_ndr.tuning_widths.get().min()).item() / kappa_sharp,
+          get(model_ndr.tuning_widths.get().max()).item() / kappa_sharp,
+          color='gray', linestyle='--', lw=2)
 ax.set_xlim([0, np.pi])
 ax.hlines(1, 0, 2 * np.pi, linestyles="--", colors='black')
 ax.set_xlabel("Preferred Orientation")
@@ -626,18 +626,18 @@ ax.set_ylabel("Relative change in width")
 plt.tight_layout()
 plt.show()
 
-#%% plot the tuning curve of the NDR model at pi/2
-fig, ax = plt.subplots(figsize=(6,4))
+# %% plot the tuning curve of the NDR model at pi/2
+fig, ax = plt.subplots(figsize=(6, 4))
 # ax.axis("off")
 # plot one gaussian with high variance in ASD_COLOR and one with low variance in NT_COLOR
 x = np.linspace(-np.pi, np.pi, 1000)
-max_tuning = model_ndr.tuning_func(x=x,kappa=model_ndr.tuning_widths.max().item())
-min_tuning = model_ndr.tuning_func(x=x,kappa=model_ndr.tuning_widths.min().item())
+max_tuning = model_ndr.tuning_func(x=x, kappa=model_ndr.tuning_widths.max().item())
+min_tuning = model_ndr.tuning_func(x=x, kappa=model_ndr.tuning_widths.min().item())
 
 ax.plot(get(x), get(max_tuning), color=NT_COLOR, linewidth=3)
 ax.plot(get(x), get(min_tuning), color=NT_COLOR, linewidth=3, linestyle="--")
-ax.set_xticks([-np.pi, -np.pi/2, 0, np.pi/2, np.pi],
-                ["$-\pi$", r"$-\frac{\pi}{2}$", "$0$", r"$\frac{\pi}{2}$", "$\pi$"])
+ax.set_xticks([-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi],
+              ["$-\pi$", r"$-\frac{\pi}{2}$", "$0$", r"$\frac{\pi}{2}$", "$\pi$"])
 
 ax.set_xlabel("Orientation")
 ax.set_ylabel("Activation")
@@ -654,12 +654,12 @@ ax.plot(x, y1, color=ASD_COLOR, linewidth=3)
 ax.plot(x, y2, color=NT_COLOR, linewidth=3)
 plt.savefig("tuning_curve_illustration.pdf")
 
-#%% plot ndr_oblique_choices and ndr_cardinal_choices histograms in two separate subplots, and add a text with the distribution width
-fig, axes = plt.subplots(1, 2, figsize=(8, 5),sharey=True)
+# %% plot ndr_oblique_choices and ndr_cardinal_choices histograms in two separate subplots, and add a text with the distribution width
+fig, axes = plt.subplots(1, 2, figsize=(8, 5), sharey=True)
 plot_choice_hist(axes[1], oblique_ndr_choices, oblique_ndr_percent_close, oblique_ndr_no_update_percent_close,
                  NT_COLOR, "Oblique NDR")
 axes[1].text(0.25, 0.75, f"Width: {get_choice_distribution_width(oblique_ndr_choices):.2f}", ha='center', va='center',
-                fontsize=12, fontweight='bold', transform=axes[1].transAxes)
+             fontsize=12, fontweight='bold', transform=axes[1].transAxes)
 # add dotted gray line on the stimulus
 axes[1].vlines(oblique_stim, 0, 1, color='gray', linestyle='--', linewidths=3)
 # add dotted red line on the average choice
@@ -668,7 +668,7 @@ axes[0].set_ylabel("Density")
 plot_choice_hist(axes[0], cardinal_ndr_choices, cardinal_ndr_percent_close, cardinal_ndr_no_update_percent_close,
                  NT_COLOR, "Cardinal NDR")
 axes[0].text(0.25, 0.75, f"Width: {get_choice_distribution_width(cardinal_ndr_choices):.2f}", ha='center', va='center',
-                fontsize=12, fontweight='bold', transform=axes[0].transAxes)
+             fontsize=12, fontweight='bold', transform=axes[0].transAxes)
 axes[0].vlines(cardinal_stim, 0, 1, color='gray', linestyle='--', linewidths=3)
 # add dotted red line on the average choice
 # axes[0].vlines(get(cardinal_ndr_choices.mean()), 0, 1, color='red', linestyle='--', linewidths=1)
@@ -676,22 +676,22 @@ for ax in axes:
     ax.set_xlabel("Decoded Stimulus")
     # set xticks with 1/4 pi intervals from 0 to 2pi
     ax.set_xticks([0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi, 5 * np.pi / 4, 3 * np.pi / 2, 7 * np.pi / 4],
-                    [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$",
-                     r"$\frac{5\pi}{4}$", r"$\frac{3\pi}{2}$", r"$\frac{7\pi}{4}$"]
-                    )
+                  [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$",
+                   r"$\frac{5\pi}{4}$", r"$\frac{3\pi}{2}$", r"$\frac{7\pi}{4}$"]
+                  )
 plt.tight_layout()
 plt.show()
-#%% plot the bias curve of the NDR model
+# %% plot the bias curve of the NDR model
 fig, ax = plt.subplots(figsize=(7, 5))
 ax.plot(get(stimuli), bias_ndr, color=NT_COLOR, label="NDR", linewidth=3)
 # set the xticks to 0-2pi in pi/4 increments
 ax.set_xticks([0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi],
-                [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$"],
+              [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$"],
               fontsize=18
-                )
+              )
 # plot gray dotted vlines at cardinal orientations, and a solid black like at 0
 ax.vlines([0, np.pi / 2, np.pi], get(bias_ndr.min()).item(), get(bias_ndr.max()).item(),
-            color='gray', linestyle='--', lw=2)
+          color='gray', linestyle='--', lw=2)
 ax.hlines(0, 0, np.pi, color='black', linestyle='-', lw=1)
 ax.set_xlabel("Stimulus")
 ax.set_ylabel("Bias (rad)")
@@ -728,12 +728,14 @@ axes[-1].set_xlabel("Stimulus", fontsize=18)
 plt.tight_layout()
 plt.show()
 
-
 # %% plot sigmoid
 import numpy as np
 import matplotlib.pyplot as plt
+
+
 def hill(x, k, n):
     return x ** n / (x ** n + k ** n)
+
 
 plt.rcParams.update({
     "figure.figsize": (12, 8),
@@ -765,4 +767,58 @@ ax.set_xlabel("Input")
 ax.set_ylabel("Output")
 plt.tight_layout()
 plt.savefig("hill2.svg")
+plt.show()
+
+# %%
+all_choices_ndr = []
+all_choices_idr = []
+for stim in stimuli:
+    all_choices_ndr.append(circ_distance(get_choices(model_ndr, stim, n_choices=10000), stim))
+    all_choices_idr.append(circ_distance(get_choices(model_idr, stim, n_choices=10000), stim))
+all_choices_ndr = np.array(all_choices_ndr)
+all_choices_idr = np.array(all_choices_idr)
+# %%
+from matplotlib.colors import LinearSegmentedColormap, Normalize
+import seaborn as sns
+fig, axes = plt.subplots(3, 1, figsize=(10, 15))
+colors = ["red", "white", "red"]
+
+# Create the colormap
+
+hist,xedges,yedges = map(get,np.histogram2d(np.repeat(stimuli, all_choices_ndr.shape[-1]), all_choices_ndr.ravel(), bins=60, density=True))
+im=axes[0].pcolormesh((xedges[:-1]+xedges[1:])/2, (yedges[:-1]+yedges[1:])/2, hist.T, cmap='Reds')
+hist,xedges,yedges = map(get,np.histogram2d(np.repeat(stimuli, all_choices_idr.shape[-1]), all_choices_idr.ravel(), bins=60, density=True))
+axes[1].pcolormesh((xedges[:-1]+xedges[1:])/2, (yedges[:-1]+yedges[1:])/2, hist.T, cmap='Reds')
+
+axes[0].set_title("NDR")
+axes[1].set_title("IDR")
+axes[0].set_xlabel("Stimulus")
+axes[1].set_xlabel("Stimulus")
+axes[0].set_ylabel("Distance (radians)")
+
+# set xticks to 0-pi in pi/4 increments
+axes[0].set_xticks([0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi],
+                   [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$"])
+axes[1].set_xticks([0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi],
+                   [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$"])
+
+
+# plot the mean on top
+axes[0].plot(get(stimuli), get(all_choices_ndr.mean(-1)), color=NT_COLOR, linewidth=5)
+axes[1].plot(get(stimuli), get(all_choices_idr.mean(-1)), color='blue', linewidth=5)
+# plot the mean all choices for each model on the same ax
+axes[2].plot(get(stimuli), get(all_choices_ndr.mean(-1)), color=NT_COLOR, linewidth=3, label="NDR")
+axes[2].plot(get(stimuli), get(all_choices_idr.mean(-1)), color='blue', linewidth=3, label="IDR")
+axes[2].set_xlabel("Stimulus")
+axes[2].set_xticks([0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi],
+                   [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$"])
+plt.tight_layout()
+# add black line at 0, gray lines at cardinal orientations and dashed lines at oblique
+for ax,val in zip(axes,[1,1,0.05]):
+    ax.vlines([0, np.pi / 2, np.pi], -val, val,
+              color='gray', linestyle='--', lw=2)
+    ax.hlines(0, 0, np.pi, color='black', linestyle='-', lw=1)
+    ax.vlines([np.pi / 4, 3*np.pi/4], -val, val,
+              color='gray', linestyle='-.', lw=2)
+    ax.legend()
 plt.show()
