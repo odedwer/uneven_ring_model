@@ -1,8 +1,11 @@
+from tqdm import tqdm
+
 from utils import get_natural_stats_distribution, circ_distance, is_iterable, vm_like
 
 # import numpy as np
 import cupy as np
 import pandas as pd
+
 
 class Model:
     def __init__(self, j0, j1, h0, h1, N, gains, tuning_widths, tuning_func, lr, count_thresh=0, width_scaling=1, T=1,
@@ -51,6 +54,8 @@ class Model:
         # add noise to the stimulus, different noise for each neuron and time point
 
         noisy_stim = stim + np.random.normal(0, self.stim_noise, (self.time.size, self.N))
+        noisy_stim[noisy_stim < 0] = 2 * np.pi + noisy_stim[noisy_stim < 0]
+        noisy_stim %= 2 * np.pi
         for i in range(1, self.time.size):
             self.r[i] = self.euler_maruyama(self.r[i - 1], noisy_stim[i], i)
         return self.r[-1].copy()
@@ -82,7 +87,7 @@ class Model:
 def train_model(stimuli, j0, j1, h0, h1, N, lr, T, dt, noise, stim_noise,
                 count_thresh, width_scaling, n_sims, nonlinearity,
                 tuning_widths, tuning_func, gains,
-                update, recalculate_connectivity, normalize_fr,
+                update, recalculate_connectivity, normalize_fr, use_tqdm=False
                 ):
     """
     Train the model with the given parameters
@@ -92,7 +97,7 @@ def train_model(stimuli, j0, j1, h0, h1, N, lr, T, dt, noise, stim_noise,
     model = Model(j0=j0, j1=j1, h0=h0, h1=h1, N=N, lr=lr, T=T, dt=dt, noise=noise, stim_noise=stim_noise,
                   count_thresh=count_thresh, width_scaling=width_scaling, n_sims=n_sims, nonlinearity=nonlinearity,
                   tuning_widths=tuning_widths, tuning_func=tuning_func, gains=gains)
-    for stim in stimuli:
+    for stim in tqdm(stimuli) if use_tqdm else stimuli:
         model.run(stim)
         if update:
             model.update(recalculate_connectivity=recalculate_connectivity, normalize_fr=normalize_fr)

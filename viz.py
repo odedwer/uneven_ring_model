@@ -98,17 +98,17 @@ def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None):
 
     # add the width of the choices to the plot in text
     plot_choice_hist(ax5, oblique_idr_choices, oblique_idr_choices_width, ASD_COLOR, "Oblique IDR")
-    ax5.text(0.5, 0.75, f"Width: {get_choice_distribution_width(oblique_idr_choices):.2f}", ha='center', va='center',
+    ax5.text(0.5, 0.75, f"Width: {oblique_idr_choices.var().item():.2g}", ha='center', va='center',
              fontsize=12,
              fontweight='bold', transform=ax5.transAxes)
     plot_choice_hist(ax6, cardinal_idr_choices, cardinal_idr_choices_width, ASD_COLOR, "Cardinal IDR")
-    ax6.text(0.5, 0.75, f"Width: {get_choice_distribution_width(cardinal_idr_choices):.2f}", ha='center', va='center',
+    ax6.text(0.5, 0.75, f"Width: {cardinal_idr_choices.var().item():.2g}", ha='center', va='center',
              fontsize=12, fontweight='bold', transform=ax6.transAxes)
     plot_choice_hist(ax7, oblique_ndr_choices, oblique_ndr_choices_width, NT_COLOR, "Oblique NDR")
-    ax7.text(0.5, 0.75, f"Width: {get_choice_distribution_width(oblique_ndr_choices):.2f}", ha='center', va='center',
+    ax7.text(0.5, 0.75, f"Width: {oblique_ndr_choices.var().item():.2g}", ha='center', va='center',
              fontsize=12, fontweight='bold', transform=ax7.transAxes)
     plot_choice_hist(ax8, cardinal_ndr_choices, cardinal_ndr_choices_width, NT_COLOR, "Cardinal NDR")
-    ax8.text(0.5, 0.75, f"Width: {get_choice_distribution_width(cardinal_ndr_choices):.2f}", ha='center', va='center',
+    ax8.text(0.5, 0.75, f"Width: {cardinal_ndr_choices.var().item():.2g}", ha='center', va='center',
              fontsize=12, fontweight='bold', transform=ax8.transAxes)
 
     ax6.yaxis.set_tick_params(labelleft=False)
@@ -218,8 +218,9 @@ def plot_firing_rate_for_stims(model_idr, model_ndr):
              (oblique_stim, near_oblique_stim), (cardinal_stim, near_cardinal_stim), (center_stim, near_center_stim)]
     ):
         ax: plt.Axes
-        ax.plot(get(theta), get(resp[0]), label="Exact")
-        ax.plot(get(theta), get(resp[1]), label="Near")
+        sort_idx = np.argsort(theta)
+        ax.plot(get(theta[sort_idx]), get(resp[0][sort_idx]), label="Exact")
+        ax.plot(get(theta[sort_idx]), get(resp[1][sort_idx]), label="Near")
         # set xticks to theta
         ax.set_xticks([0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi, 5 * np.pi / 4, 3 * np.pi / 2, 7 * np.pi / 4],
                       [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$",
