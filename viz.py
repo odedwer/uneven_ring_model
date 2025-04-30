@@ -7,10 +7,10 @@ from matplotlib.gridspec import GridSpec
 ASD_COLOR, NT_COLOR = "#FF0000", "#00A08A"
 
 
-def _prep_model_for_main_plot(model, oblique_stim, cardinal_stim,choice_thresh):
+def _prep_model_for_main_plot(model, oblique_stim, cardinal_stim, choice_thresh):
     theta = model.theta.get()
-    oblique_choices = get_choices(model, oblique_stim, n_choices=10000,choice_thresh=choice_thresh)
-    cardinal_choices = get_choices(model, cardinal_stim, n_choices=10000,choice_thresh=choice_thresh)
+    oblique_choices = get_choices(model, oblique_stim, n_choices=10000, choice_thresh=choice_thresh)
+    cardinal_choices = get_choices(model, cardinal_stim, n_choices=10000, choice_thresh=choice_thresh)
     oblique_choices_width = get_choice_distribution_width(oblique_choices)
     cardinal_choices_width = get_choice_distribution_width(cardinal_choices)
     return theta, oblique_choices, cardinal_choices, oblique_choices_width, cardinal_choices_width
@@ -173,25 +173,9 @@ def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None):
 
 
 def plot_firing_rate_for_stims(model_idr, model_ndr):
-    oblique_stim = 3 * np.pi / 4
-    cardinal_stim = np.pi
-    near_oblique_stim = oblique_stim + np.pi / 12
-    near_cardinal_stim = cardinal_stim + np.pi / 12
-    center_stim = 3 * np.pi / 8
-    near_center_stim = center_stim + np.pi / 12
-
-    oblique_idr_resps = np.squeeze(model_idr.run(oblique_stim))
-    cardinal_idr_resps = np.squeeze(model_idr.run(cardinal_stim))
-    near_oblique_idr_resps = np.squeeze(model_idr.run(near_oblique_stim))
-    near_cardinal_idr_resps = np.squeeze(model_idr.run(near_cardinal_stim))
-    center_idr_resps = np.squeeze(model_idr.run(center_stim))
-    near_center_idr_resps = np.squeeze(model_idr.run(near_center_stim))
-    oblique_ndr_resps = np.squeeze(model_ndr.run(oblique_stim))
-    cardinal_ndr_resps = np.squeeze(model_ndr.run(cardinal_stim))
-    near_oblique_ndr_resps = np.squeeze(model_ndr.run(near_oblique_stim))
-    near_cardinal_ndr_resps = np.squeeze(model_ndr.run(near_cardinal_stim))
-    center_ndr_resps = np.squeeze(model_ndr.run(center_stim))
-    near_center_ndr_resps = np.squeeze(model_ndr.run(near_center_stim))
+    cardinal_idr_resps, cardinal_ndr_resps, cardinal_stim, center_idr_resps, center_ndr_resps, center_stim, near_cardinal_idr_resps, near_cardinal_ndr_resps, near_cardinal_stim, near_center_idr_resps, near_center_ndr_resps, near_center_stim, near_oblique_idr_resps, near_oblique_ndr_resps, near_oblique_stim, oblique_idr_resps, oblique_ndr_resps, oblique_stim = _get_oblique_and_cardinal_viz_resps(
+        model_idr, model_ndr
+    )
 
     plt.rcParams.update(
         {
@@ -243,3 +227,119 @@ def plot_firing_rate_for_stims(model_idr, model_ndr):
     axes[1, 2].set_xlabel("Orientation ($\\theta$)")
     fig.tight_layout()
     plt.show()
+
+
+def norm_to_pdf(x):
+    return (x - x.min()) / (x - x.min()).sum()
+
+
+def plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, choice_thresh="h0"):
+    cardinal_idr_resps, cardinal_ndr_resps, cardinal_stim, center_idr_resps, center_ndr_resps, center_stim, near_cardinal_idr_resps, near_cardinal_ndr_resps, near_cardinal_stim, near_center_idr_resps, near_center_ndr_resps, near_center_stim, near_oblique_idr_resps, near_oblique_ndr_resps, near_oblique_stim, oblique_idr_resps, oblique_ndr_resps, oblique_stim = _get_oblique_and_cardinal_viz_resps(
+        model_idr, model_ndr
+    )
+    # based on the choice_thresh, threshold the responses:
+    choice_thresh_val = None
+    if choice_thresh == "h0":
+        choice_thresh_val = model_idr.h0
+    if isinstance(choice_thresh, int) or isinstance(choice_thresh, float):
+        choice_thresh_val = choice_thresh
+    if not (choice_thresh_val is None):
+        for resp in [cardinal_idr_resps, cardinal_ndr_resps, center_idr_resps, center_ndr_resps,
+                     near_cardinal_idr_resps, near_cardinal_ndr_resps, near_center_idr_resps, near_center_ndr_resps,
+                     near_oblique_idr_resps, near_oblique_ndr_resps, oblique_idr_resps, oblique_ndr_resps]:
+            resp[resp < choice_thresh_val] = 0
+    else:
+        # multiply the idr_model responses by sum-to-1 normalized tuning widths
+        for model, resps in [
+            [
+                model_idr, [cardinal_idr_resps, center_idr_resps, near_cardinal_idr_resps, near_center_idr_resps,
+                            near_oblique_idr_resps, oblique_idr_resps]
+            ],
+            [
+                model_ndr, [cardinal_ndr_resps, center_ndr_resps, near_cardinal_ndr_resps, near_center_ndr_resps,
+                            near_oblique_ndr_resps, oblique_ndr_resps]
+            ]
+        ]:
+            tuning_widths = np.squeeze(model.tuning_widths / model.tuning_widths.sum())
+            for resp in resps:
+                resp *= tuning_widths
+
+    (cardinal_idr_resps, cardinal_ndr_resps, center_idr_resps, center_ndr_resps,
+     near_cardinal_idr_resps, near_cardinal_ndr_resps, near_center_idr_resps, near_center_ndr_resps,
+     near_oblique_idr_resps, near_oblique_ndr_resps, oblique_idr_resps, oblique_ndr_resps) = (
+        map(norm_to_pdf,
+            [cardinal_idr_resps, cardinal_ndr_resps, center_idr_resps, center_ndr_resps, near_cardinal_idr_resps,
+             near_cardinal_ndr_resps, near_center_idr_resps, near_center_ndr_resps, near_oblique_idr_resps,
+             near_oblique_ndr_resps, oblique_idr_resps, oblique_ndr_resps])
+    )
+
+    plt.rcParams.update(
+        {
+            "legend.fontsize": 14,
+            "axes.labelsize": 16,
+            "axes.titlesize": 16,
+            "axes.titleweight": 'bold',
+            "axes.labelweight": 'bold',
+            "xtick.labelsize": 16,
+            "ytick.labelsize": 14,
+            'axes.spines.right': False,
+            'axes.spines.top': False,
+        }
+    )
+    fig, axes = plt.subplots(2, 3, figsize=(15, 10), sharex=True, sharey=True)
+    for ax, resp, title, theta, (stim, near_stim) in zip(
+            axes.flatten(),
+            [(oblique_idr_resps, near_oblique_idr_resps), (cardinal_idr_resps, near_cardinal_idr_resps),
+             (center_idr_resps, near_center_idr_resps), (oblique_ndr_resps, near_oblique_ndr_resps),
+             (cardinal_ndr_resps, near_cardinal_ndr_resps), (center_ndr_resps, near_center_ndr_resps)],
+            ["Oblique IDR", "Cardinal IDR", "Center IDR", "Oblique NDR", "Cardinal NDR", "Center NDR"],
+            [model_idr.theta, model_idr.theta, model_idr.theta, model_ndr.theta, model_ndr.theta, model_ndr.theta],
+            [(oblique_stim, near_oblique_stim), (cardinal_stim, near_cardinal_stim), (center_stim, near_center_stim),
+             (oblique_stim, near_oblique_stim), (cardinal_stim, near_cardinal_stim), (center_stim, near_center_stim)]
+    ):
+        ax: plt.Axes
+        sort_idx = np.argsort(theta)
+        ax.plot(get(theta[sort_idx]), get(np.cumsum(resp[0][sort_idx])), label="Exact")
+        ax.plot(get(theta[sort_idx]), get(np.cumsum(resp[1][sort_idx])), label="Near")
+        # set xticks to theta
+        ax.set_xticks([0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi, 5 * np.pi / 4, 3 * np.pi / 2, 7 * np.pi / 4],
+                      [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$",
+                       r"$\frac{5\pi}{4}$", r"$\frac{3\pi}{2}$", r"$\frac{7\pi}{4}$"]
+                      )
+        ax.axvline(stim, color='b', linestyle='--', label="Exact Stimulus")
+        ax.axvline(near_stim, color='r', linestyle='--', label="Near Stimulus")
+        ax.axhline(0.5, color='gray', linestyle='--')
+        ax.legend()
+    axes[0, 0].set_title("Oblique")
+    axes[0, 1].set_title("Cardinal")
+    axes[0, 2].set_title("Center")
+    axes[0, 0].set_ylabel("IDR\n\nCumulative Firing Rate")
+    axes[1, 0].set_ylabel("NDR\n\nCumulative Firing Rate")
+    axes[1, 0].set_xlabel("Orientation ($\\theta$)")
+    axes[1, 1].set_xlabel("Orientation ($\\theta$)")
+    axes[1, 2].set_xlabel("Orientation ($\\theta$)")
+    fig.suptitle(f"Choice threshold: {str(choice_thresh)}",fontweight="bold", fontsize=24)
+    fig.tight_layout()
+    plt.show()
+
+
+def _get_oblique_and_cardinal_viz_resps(model_idr, model_ndr):
+    oblique_stim = 3 * np.pi / 4
+    cardinal_stim = np.pi
+    near_oblique_stim = oblique_stim + np.pi / 12
+    near_cardinal_stim = cardinal_stim + np.pi / 12
+    center_stim = 3 * np.pi / 8
+    near_center_stim = center_stim + np.pi / 12
+    oblique_idr_resps = np.squeeze(model_idr.run(oblique_stim))
+    cardinal_idr_resps = np.squeeze(model_idr.run(cardinal_stim))
+    near_oblique_idr_resps = np.squeeze(model_idr.run(near_oblique_stim))
+    near_cardinal_idr_resps = np.squeeze(model_idr.run(near_cardinal_stim))
+    center_idr_resps = np.squeeze(model_idr.run(center_stim))
+    near_center_idr_resps = np.squeeze(model_idr.run(near_center_stim))
+    oblique_ndr_resps = np.squeeze(model_ndr.run(oblique_stim))
+    cardinal_ndr_resps = np.squeeze(model_ndr.run(cardinal_stim))
+    near_oblique_ndr_resps = np.squeeze(model_ndr.run(near_oblique_stim))
+    near_cardinal_ndr_resps = np.squeeze(model_ndr.run(near_cardinal_stim))
+    center_ndr_resps = np.squeeze(model_ndr.run(center_stim))
+    near_center_ndr_resps = np.squeeze(model_ndr.run(near_center_stim))
+    return cardinal_idr_resps, cardinal_ndr_resps, cardinal_stim, center_idr_resps, center_ndr_resps, center_stim, near_cardinal_idr_resps, near_cardinal_ndr_resps, near_cardinal_stim, near_center_idr_resps, near_center_ndr_resps, near_center_stim, near_oblique_idr_resps, near_oblique_ndr_resps, near_oblique_stim, oblique_idr_resps, oblique_ndr_resps, oblique_stim

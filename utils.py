@@ -52,8 +52,8 @@ def get_tuning_widths(N, kappa, precision=6, min_val=0.5):
     return b * kappa
 
 
-def circ_distance(x, y):
-    return np.atan2(np.sin(x - y), np.cos(x - y))
+# def circ_distance(x, y):
+#     return np.atan2(np.sin(x - y), np.cos(x - y))
 
 
 def animate_model_example(name, stim, y, theta, i=0):

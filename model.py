@@ -7,6 +7,7 @@ import cupy as np
 import pandas as pd
 
 
+
 class Model:
     def __init__(self, j0, j1, h0, h1, N, gains, tuning_widths, tuning_func, lr, count_thresh=0, width_scaling=1, T=1,
                  dt=1e-2, noise=0., stim_noise=0., n_sims=1000, nonlinearity=lambda x: x):
@@ -32,7 +33,7 @@ class Model:
         self.J = (1 / self.N) * (self.j0 + self.j1 * np.cos(self.theta[:, None] - self.theta[None, :]))
         self.r = np.zeros((self.time.size, N, n_sims))
         self.noise = noise
-        self._dW = np.random.normal(loc=0.0, scale=np.sqrt(dt), size=(self.time.size - 1, N, self.n_sims)) * self.noise
+        self._dW = np.random.normal(loc=0.0, scale=np.sqrt(dt)* self.noise, size=(self.time.size - 1, N, self.n_sims))
         self.lr = lr
         self.width_scaling = width_scaling
         self.count_thresh = count_thresh
