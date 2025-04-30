@@ -2,7 +2,7 @@
 from model import train_model
 from utils import get, vm_like, get_natural_stats_distribution, reload
 import cupy as np
-from viz import main_plot, plot_firing_rate_for_stims, plot_cumulative_firing_rate_for_stims
+from viz import main_plot, plot_firing_rate_for_stims, plot_cumulative_firing_rate_for_stims, preferred_orientation_plot
 
 params = {
     "j0": 0.3,
@@ -11,7 +11,7 @@ params = {
     "h1": 0.25,
     "lr": 1e-2,
     "noise": 0.0,
-    "stim_noise": np.deg2rad(2),
+    "stim_noise": np.deg2rad(3),
     "count_thresh": 0.97,
     "width_scaling": 1,
     "n_stim": 350,
@@ -19,33 +19,50 @@ params = {
     "T": 1,
     "dt": 1e-2,
     "n_sims": 1,
-    "nonlinearity": lambda x: np.maximum(x, 0)
-
+    "nonlinearity": lambda x: np.maximum(x, 0),
+    "recalculate_connectivity": True,
+    "limit_width": False
 }
 
 np.random.seed(97)
-stim_list = get_natural_stats_distribution(int(params["n_stim"])) + np.pi
+stim_list = get_natural_stats_distribution(int(params["n_stim"]),kappa=4) + np.pi
 
 model_idr = train_model(
     stimuli=stim_list, j0=params["j0"], j1=params["j1"], h0=params["h0"], h1=params["h1"], N=params["N"],
     lr=params["lr"], T=params["T"], dt=params["dt"], noise=params["noise"], stim_noise=params["stim_noise"],
     count_thresh=params["count_thresh"], width_scaling=params["width_scaling"], n_sims=params["n_sims"],
-    nonlinearity=params["nonlinearity"], tuning_widths=2,
-    tuning_func=vm_like, gains=1, update=True, recalculate_connectivity=False, normalize_fr=True,
+    nonlinearity=params["nonlinearity"], tuning_widths=3,
+    tuning_func=vm_like, gains=1, update=True, recalculate_connectivity=params["recalculate_connectivity"],
+    normalize_fr=True, limit_width=params["limit_width"]
 )
 model_ndr = train_model(
     stimuli=stim_list, j0=params["j0"], j1=params["j1"], h0=params["h0"], h1=params["h1"], N=params["N"],
     lr=params["lr"], T=params["T"], dt=params["dt"], noise=params["noise"], stim_noise=params["stim_noise"],
     count_thresh=params["count_thresh"], width_scaling=params["width_scaling"], n_sims=params["n_sims"],
     nonlinearity=params["nonlinearity"], tuning_widths=8,
-    tuning_func=vm_like, gains=1, update=True, recalculate_connectivity=False, normalize_fr=True,
+    tuning_func=vm_like, gains=1, update=True, recalculate_connectivity=params["recalculate_connectivity"],
+    normalize_fr=True, limit_width=params["limit_width"]
 )
 
-main_plot(stim_list, model_idr, model_ndr)
-main_plot(stim_list, model_idr, model_ndr, choice_thresh="h0")
-# main_plot(stim_list, model_idr, model_ndr, choice_thresh="bayesian")
+title = "recalc_{}_limit_{}_noise".format(params["recalculate_connectivity"], params["limit_width"])
+
+main_plot(stim_list, model_idr, model_ndr, savename="main_plot_0_thresh_" + title)
+main_plot(stim_list, model_idr, model_ndr, choice_thresh="h0", savename="main_plot_h0_thresh_" + title)
+main_plot(stim_list, model_idr, model_ndr, choice_thresh="bayesian", savename="main_plot_bayes_thresh_" + title)
+# %%
+plot_firing_rate_for_stims(model_idr, model_ndr, savename="fr_" + title)
+plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, savename="cumulative_fr_h0_" + title)
+plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, choice_thresh=0, savename="cumulative_fr_0_" + title)
+plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, choice_thresh="bayesian",
+                                      savename="cumulative_fr_bayes_" + title)
+preferred_orientation_plot(model_idr, model_ndr, savename="preferred_orientation_" + title)
+
 #%%
-plot_firing_rate_for_stims(model_idr, model_ndr)
-plot_cumulative_firing_rate_for_stims(model_idr, model_ndr)
-plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, choice_thresh=0)
-plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, choice_thresh="bayesian")
+import matplotlib.pyplot as plt
+plt.hist(get(stim_list), bins=90, density=True)
+plt.xticks(
+    get(np.linspace(0, 2 * np.pi, 5)),
+    [f"{get(np.rad2deg(x)):.0f}" for x in np.linspace(0, 2 * np.pi, 5)],
+    rotation=45
+)
+plt.show()

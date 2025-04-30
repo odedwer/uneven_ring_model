@@ -258,3 +258,11 @@ def get_choices(model, stim, n_choices=10000, seed=97, choice_thresh=None):
 def reload(func):
     del sys.modules[func.__module__]
     exec(f"from {func.__module__} import {func.__name__}")
+
+def get_skew(x):
+    """
+    Calculate the skewness of a distribution
+    :param x: distribution
+    :return: skewness
+    """
+    return stats.skew(get(x), axis=0)

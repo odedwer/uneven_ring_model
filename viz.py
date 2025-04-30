@@ -1,5 +1,5 @@
 from utils import get, vm_like, get_natural_stats_distribution, get_bias_variance, circ_distance, get_choices, \
-    get_choice_distribution_width
+    get_choice_distribution_width, get_skew
 import cupy as np
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
@@ -16,7 +16,7 @@ def _prep_model_for_main_plot(model, oblique_stim, cardinal_stim, choice_thresh)
     return theta, oblique_choices, cardinal_choices, oblique_choices_width, cardinal_choices_width
 
 
-def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None):
+def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None):
     oblique_stim = 5 * np.pi / 4
     cardinal_stim = np.pi
 
@@ -168,11 +168,12 @@ def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None):
     # fig.text(0.025, 0.45, "D", fontsize=24, fontweight="bold")
     fig.text(0.025, 0.27, "D", fontsize=24, fontweight="bold")
     fig.text(0.51, 0.27, "E", fontsize=24, fontweight="bold")
-    plt.savefig("bias_ring_model.pdf")
+    if savename:
+        plt.savefig(f"figures/{savename}.pdf")
     plt.show()
 
 
-def plot_firing_rate_for_stims(model_idr, model_ndr):
+def plot_firing_rate_for_stims(model_idr, model_ndr, savename=None):
     cardinal_idr_resps, cardinal_ndr_resps, cardinal_stim, center_idr_resps, center_ndr_resps, center_stim, near_cardinal_idr_resps, near_cardinal_ndr_resps, near_cardinal_stim, near_center_idr_resps, near_center_ndr_resps, near_center_stim, near_oblique_idr_resps, near_oblique_ndr_resps, near_oblique_stim, oblique_idr_resps, oblique_ndr_resps, oblique_stim = _get_oblique_and_cardinal_viz_resps(
         model_idr, model_ndr
     )
@@ -216,6 +217,10 @@ def plot_firing_rate_for_stims(model_idr, model_ndr):
         resp[1][resp[1] < model_idr.h0] = 0
         normed_resp = (resp[1] - resp[1].min()) / (resp[1] - resp[1].min()).sum()
         ax.axvline(get(normed_resp * theta).sum(), 0, 2 * np.pi, color='green', linestyle='--', label="Mean resp")
+        skew = get_skew(get(normed_resp[sort_idx]))
+        ax.text(0.01, 0.95, f"Skew: {skew:.2f}\nBias: {circ_distance(get(normed_resp * theta).sum(), near_stim):.2f}",
+                ha='left', va='center', fontsize=12,
+                fontweight='bold', transform=ax.transAxes)
         ax.legend()
     axes[0, 0].set_title("Oblique")
     axes[0, 1].set_title("Cardinal")
@@ -226,6 +231,8 @@ def plot_firing_rate_for_stims(model_idr, model_ndr):
     axes[1, 1].set_xlabel("Orientation ($\\theta$)")
     axes[1, 2].set_xlabel("Orientation ($\\theta$)")
     fig.tight_layout()
+    if savename:
+        plt.savefig(f"figures/{savename}.pdf")
     plt.show()
 
 
@@ -233,7 +240,7 @@ def norm_to_pdf(x):
     return (x - x.min()) / (x - x.min()).sum()
 
 
-def plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, choice_thresh="h0"):
+def plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, choice_thresh="h0", savename=None):
     cardinal_idr_resps, cardinal_ndr_resps, cardinal_stim, center_idr_resps, center_ndr_resps, center_stim, near_cardinal_idr_resps, near_cardinal_ndr_resps, near_cardinal_stim, near_center_idr_resps, near_center_ndr_resps, near_center_stim, near_oblique_idr_resps, near_oblique_ndr_resps, near_oblique_stim, oblique_idr_resps, oblique_ndr_resps, oblique_stim = _get_oblique_and_cardinal_viz_resps(
         model_idr, model_ndr
     )
@@ -318,18 +325,20 @@ def plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, choice_thresh="h
     axes[1, 0].set_xlabel("Orientation ($\\theta$)")
     axes[1, 1].set_xlabel("Orientation ($\\theta$)")
     axes[1, 2].set_xlabel("Orientation ($\\theta$)")
-    fig.suptitle(f"Choice threshold: {str(choice_thresh)}",fontweight="bold", fontsize=24)
+    fig.suptitle(f"Choice threshold: {str(choice_thresh)}", fontweight="bold", fontsize=24)
     fig.tight_layout()
+    if savename:
+        plt.savefig(f"figures/{savename}.pdf")
     plt.show()
 
 
 def _get_oblique_and_cardinal_viz_resps(model_idr, model_ndr):
     oblique_stim = 3 * np.pi / 4
     cardinal_stim = np.pi
-    near_oblique_stim = oblique_stim + np.pi / 12
-    near_cardinal_stim = cardinal_stim + np.pi / 12
+    near_oblique_stim = oblique_stim + np.pi / 36
+    near_cardinal_stim = cardinal_stim + np.pi / 36
     center_stim = 3 * np.pi / 8
-    near_center_stim = center_stim + np.pi / 12
+    near_center_stim = center_stim + np.pi / 36
     oblique_idr_resps = np.squeeze(model_idr.run(oblique_stim))
     cardinal_idr_resps = np.squeeze(model_idr.run(cardinal_stim))
     near_oblique_idr_resps = np.squeeze(model_idr.run(near_oblique_stim))
@@ -343,3 +352,45 @@ def _get_oblique_and_cardinal_viz_resps(model_idr, model_ndr):
     center_ndr_resps = np.squeeze(model_ndr.run(center_stim))
     near_center_ndr_resps = np.squeeze(model_ndr.run(near_center_stim))
     return cardinal_idr_resps, cardinal_ndr_resps, cardinal_stim, center_idr_resps, center_ndr_resps, center_stim, near_cardinal_idr_resps, near_cardinal_ndr_resps, near_cardinal_stim, near_center_idr_resps, near_center_ndr_resps, near_center_stim, near_oblique_idr_resps, near_oblique_ndr_resps, near_oblique_stim, oblique_idr_resps, oblique_ndr_resps, oblique_stim
+
+
+def preferred_orientation_plot(model_idr, model_ndr, savename=None):
+    # get the preferred orientation for each model
+    idr_theta = model_idr.theta
+    ndr_theta = model_ndr.theta
+
+    # get the preferred orientations +- 30 degs around 0 and pi/2
+    idr_prefs_90 = np.where(np.abs(circ_distance(idr_theta, np.pi / 2)) < np.deg2rad(30))[0]
+    ndr_prefs_90 = np.where(np.abs(circ_distance(ndr_theta, np.pi / 2)) < np.deg2rad(30))[0]
+    idr_prefs_180 = np.where(np.abs(circ_distance(idr_theta, np.pi)) < np.deg2rad(30))[0]
+    ndr_prefs_180 = np.where(np.abs(circ_distance(ndr_theta, np.pi)) < np.deg2rad(30))[0]
+
+    fig, axes = plt.subplots(2, 2, figsize=(10, 5), sharey=True, sharex="col")
+    axes = axes.flatten()
+    for ax, pred, theta, color, xlim in [
+        [axes[0], idr_prefs_180, idr_theta, ASD_COLOR, (np.pi - np.pi / 6, np.pi + np.pi / 6)],
+        [axes[1], idr_prefs_90, idr_theta, ASD_COLOR, ((np.pi / 2) - np.pi / 6, (np.pi / 2) + np.pi / 6)],
+        [axes[2], ndr_prefs_180, ndr_theta, NT_COLOR, (np.pi - np.pi / 6, np.pi + np.pi / 6)],
+        [axes[3], ndr_prefs_90, ndr_theta, NT_COLOR, ((np.pi / 2) - np.pi / 6, (np.pi / 2) + np.pi / 6)]
+    ]:
+        ax.hist(get(theta[pred]), bins=11, alpha=0.5, color=ASD_COLOR if "IDR" in str(ax) else NT_COLOR)
+        ax.set_xlim(xlim)
+    axes[0].set_title("180 degrees")
+    axes[1].set_title("90 degrees")
+    axes[0].set_ylabel("IDR\n\nCount")
+    axes[2].set_ylabel("NDR\n\nCount")
+    axes[2].set_xlabel("Preferred Orientation (degrees)")  # set the current tick to radians
+    axes[2].set_xticks(
+        axes[2].get_xticks(),
+        [int(round(i, 0)) for i in get(np.rad2deg(np.array(axes[2].get_xticks())))],
+    )
+    axes[3].set_xlabel("Preferred Orientation (degrees)")
+    axes[3].set_xticks(
+        axes[3].get_xticks(),
+        [int(round(i, 0)) for i in get(np.rad2deg(np.array(axes[3].get_xticks())))],
+    )
+    fig.suptitle("Preferred Orientation Distribution", fontsize=24, fontweight="bold")
+    fig.tight_layout()
+    if savename:
+        plt.savefig(f"figures/{savename}.pdf")
+    plt.show()
