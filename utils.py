@@ -251,8 +251,11 @@ def get_choices(model, stim, n_choices=10000, seed=97, choice_thresh=None):
         elif choice_thresh == "bayesian":
             resps*=model.tuning_widths
     prob = np.squeeze((resps - resps.min()) / (resps - resps.min()).sum())
-    choices = np.random.choice(np.squeeze(model.theta), replace=True,
+    try:
+        choices = np.random.choice(np.squeeze(model.theta), replace=True,
                                p=prob, size=n_choices)
+    except ValueError:
+        choices = np.full(n_choices, np.nan)
     return choices
 
 def reload(func):

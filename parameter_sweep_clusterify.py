@@ -56,7 +56,7 @@ def main():
     results = pd.DataFrame(finalize(results))
     results.to_csv("model_res.csv", index=True)
 
-@clusterify(chunk_size=5, n_jobs=100)
+@clusterify(chunk_size=2, n_jobs=1000,debug=True,walltime='10:00:00', memory='4GB')
 def run_param_comb(N, T, dt, n_sims, nonlinearity, params):
     res = {}
     res.update(params)

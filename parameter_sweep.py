@@ -4,7 +4,7 @@ import scipy.stats as stats
 from tqdm import tqdm
 import pandas as pd
 from utils import get, vm_like, get_natural_stats_distribution, get_bias_variance
-import cupy as np
+import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import skew
 
@@ -17,10 +17,10 @@ noise = 0.00
 n_sims = 1
 
 j0_list = [0]
-j1_list = np.linspace(1, 3, 5).get()
+j1_list = get(np.linspace(1, 3, 5))
 
 h0_list = [1]
-h1_list = np.linspace(0.5, 2, 7).get()
+h1_list = get(np.linspace(0.5, 2, 7))
 lr_list = [5e-3]
 noise_list = [0.00]
 stim_noise_list = [0.00]
