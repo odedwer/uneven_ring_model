@@ -171,7 +171,9 @@ def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None
     fig.text(0.025, 0.27, "D", fontsize=24, fontweight="bold")
     fig.text(0.51, 0.27, "E", fontsize=24, fontweight="bold")
     if savename:
-        new_savename = os.path.join("figures",*savename.split("_"),f"main_choice_{choice_thresh}")
+        new_savename = os.path.join("figures", *savename.split("_"))
+        os.makedirs(new_savename, exist_ok=True)
+        new_savename = os.path.join(new_savename,f"main_choice_{choice_thresh}")
         plt.savefig(f"{new_savename}.pdf")
 
 
@@ -234,7 +236,9 @@ def plot_firing_rate_for_stims(model_idr, model_ndr, savename=None):
     axes[1, 2].set_xlabel("Orientation ($\\theta$)")
     fig.tight_layout()
     if savename:
-        new_savename = os.path.join("figures", *savename.split("_"), f"firing_rates")
+        new_savename = os.path.join("figures", *savename.split("_"))
+        os.makedirs(new_savename, exist_ok=True)
+        new_savename = os.path.join(new_savename, f"firing_rates")
         plt.savefig(f"{new_savename}.pdf")
 
 
@@ -330,7 +334,9 @@ def plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, choice_thresh="h
     fig.suptitle(f"Choice threshold: {str(choice_thresh)}", fontweight="bold", fontsize=24)
     fig.tight_layout()
     if savename:
-        new_savename = os.path.join("figures", *savename.split("_"), f"cumulative_fr_{choice_thresh}")
+        new_savename = os.path.join("figures", *savename.split("_"))
+        os.makedirs(new_savename, exist_ok=True)
+        new_savename = os.path.join(new_savename, f"cumulative_fr_{choice_thresh}")
         plt.savefig(f"{new_savename}.pdf")
 
 
@@ -394,5 +400,7 @@ def preferred_orientation_plot(model_idr, model_ndr, savename=None):
     fig.suptitle("Preferred Orientation Distribution", fontsize=24, fontweight="bold")
     fig.tight_layout()
     if savename:
-        new_savename = os.path.join("figures", *savename.split("_"), f"preferred_orientation")
+        new_savename = os.path.join("figures", *savename.split("_"))
+        os.makedirs(new_savename, exist_ok=True)
+        new_savename = os.path.join(new_savename, f"preferred_orientation")
         plt.savefig(f"{new_savename}.pdf")
