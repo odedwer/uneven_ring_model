@@ -56,7 +56,8 @@ def main():
     results = pd.DataFrame(finalize(results))
     results.to_csv("model_res.csv", index=True)
 
-@clusterify(chunk_size=2, n_jobs=1000,debug=True,walltime='10:00:00', memory='4GB')
+
+@clusterify(chunk_size=2, n_jobs=1000, debug=True, walltime='10:00:00', memory='4GB')
 def run_param_comb(N, T, dt, n_sims, nonlinearity, params):
     res = {}
     res.update(params)
@@ -83,17 +84,32 @@ def run_param_comb(N, T, dt, n_sims, nonlinearity, params):
     calculate_corrent_incorrect_bias(bias_idr, bias_ndr, res, stimuli)
     calculate_skews(model_idr, model_ndr, res)
     title = "_".join(f"{k}-{v}" for k, v in params.items())
-    main_plot(stim_list, model_idr, model_ndr, savename="main_plot_0_thresh_" + title)
-    plt.close('all')
-    main_plot(stim_list, model_idr, model_ndr, choice_thresh="h0", savename="main_plot_h0_thresh_" + title)
-    plt.close('all')
-    plot_firing_rate_for_stims(model_idr, model_ndr, savename="fr_" + title)
-    plt.close('all')
-    plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, savename="cumulative_fr_h0_" + title)
-    plt.close('all')
-    plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, choice_thresh=0,
-                                          savename="cumulative_fr_0_" + title)
-    plt.close('all')
+    try:
+        main_plot(stim_list, model_idr, model_ndr, savename="main_plot_0_thresh_" + title)
+        plt.close('all')
+    except Exception as e:
+        pass
+    try:
+        main_plot(stim_list, model_idr, model_ndr, choice_thresh="h0", savename="main_plot_h0_thresh_" + title)
+        plt.close('all')
+    except Exception as e:
+        pass
+    try:
+        plot_firing_rate_for_stims(model_idr, model_ndr, savename="fr_" + title)
+        plt.close('all')
+    except Exception as e:
+        pass
+    try:
+        plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, savename="cumulative_fr_h0_" + title)
+        plt.close('all')
+    except Exception as e:
+        pass
+    try:
+        plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, choice_thresh=0,
+                                              savename="cumulative_fr_0_" + title)
+        plt.close('all')
+    except Exception as e:
+        pass
     return res
 
 
