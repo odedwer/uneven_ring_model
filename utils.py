@@ -139,7 +139,7 @@ def get_natural_stats_distribution(n_points, peaks=None, kappa=6):
 
 def get_bias_variance(model, sigma=0.75, seed=97, choice_thresh=None):
     np.random.seed(seed)
-    stimuli = np.linspace(0, np.pi, 181)
+    stimuli = np.linspace(0, np.pi, 91)
     bias = np.zeros_like(stimuli)
     bias_ci = np.zeros(stimuli.shape)
     variance = np.zeros_like(stimuli)

@@ -1,3 +1,5 @@
+import os
+
 from utils import get, vm_like, get_natural_stats_distribution, get_bias_variance, circ_distance, get_choices, \
     get_choice_distribution_width, get_skew
 import cupy as np
@@ -169,8 +171,8 @@ def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None
     fig.text(0.025, 0.27, "D", fontsize=24, fontweight="bold")
     fig.text(0.51, 0.27, "E", fontsize=24, fontweight="bold")
     if savename:
-        plt.savefig(f"figures/{savename}.pdf")
-    plt.show()
+        new_savename = os.path.join("figures",*savename.split("_"),f"main_choice_{choice_thresh}")
+        plt.savefig(f"{new_savename}.pdf")
 
 
 def plot_firing_rate_for_stims(model_idr, model_ndr, savename=None):
@@ -232,8 +234,8 @@ def plot_firing_rate_for_stims(model_idr, model_ndr, savename=None):
     axes[1, 2].set_xlabel("Orientation ($\\theta$)")
     fig.tight_layout()
     if savename:
-        plt.savefig(f"figures/{savename}.pdf")
-    plt.show()
+        new_savename = os.path.join("figures", *savename.split("_"), f"firing_rates")
+        plt.savefig(f"{new_savename}.pdf")
 
 
 def norm_to_pdf(x):
@@ -328,8 +330,8 @@ def plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, choice_thresh="h
     fig.suptitle(f"Choice threshold: {str(choice_thresh)}", fontweight="bold", fontsize=24)
     fig.tight_layout()
     if savename:
-        plt.savefig(f"figures/{savename}.pdf")
-    plt.show()
+        new_savename = os.path.join("figures", *savename.split("_"), f"cumulative_fr_{choice_thresh}")
+        plt.savefig(f"{new_savename}.pdf")
 
 
 def _get_oblique_and_cardinal_viz_resps(model_idr, model_ndr):
@@ -392,5 +394,5 @@ def preferred_orientation_plot(model_idr, model_ndr, savename=None):
     fig.suptitle("Preferred Orientation Distribution", fontsize=24, fontweight="bold")
     fig.tight_layout()
     if savename:
-        plt.savefig(f"figures/{savename}.pdf")
-    plt.show()
+        new_savename = os.path.join("figures", *savename.split("_"), f"preferred_orientation")
+        plt.savefig(f"{new_savename}.pdf")

@@ -1,14 +1,14 @@
 # %%
 from model import train_model
-from utils import get, vm_like, get_natural_stats_distribution, reload
+from utils import get, vm_like, get_natural_stats_distribution, reload, circ_distance
 import cupy as np
 from viz import main_plot, plot_firing_rate_for_stims, plot_cumulative_firing_rate_for_stims, preferred_orientation_plot
 
 params = {
     "j0": 0.3,
     "j1": 3,
-    "h0": 0.2,
-    "h1": 0.25,
+    "h0": 0.32,
+    "h1": 0.4,
     "lr": 1e-2,
     "noise": 0.0,
     "stim_noise": np.deg2rad(3),
@@ -24,10 +24,10 @@ params = {
     "limit_width": False
 }
 
-np.random.seed(97)
-stim_list = get_natural_stats_distribution(int(params["n_stim"]),kappa=4) + np.pi
+np.random.seed(42)
+stim_list = get_natural_stats_distribution(int(params["n_stim"]),kappa=4.5) + np.pi
 
-model_idr = train_model(
+model_idr,idr_learning_thetas, idr_learning_tuning_widths = train_model(
     stimuli=stim_list, j0=params["j0"], j1=params["j1"], h0=params["h0"], h1=params["h1"], N=params["N"],
     lr=params["lr"], T=params["T"], dt=params["dt"], noise=params["noise"], stim_noise=params["stim_noise"],
     count_thresh=params["count_thresh"], width_scaling=params["width_scaling"], n_sims=params["n_sims"],
@@ -35,7 +35,7 @@ model_idr = train_model(
     tuning_func=vm_like, gains=1, update=True, recalculate_connectivity=params["recalculate_connectivity"],
     normalize_fr=True, limit_width=params["limit_width"]
 )
-model_ndr = train_model(
+model_ndr,ndr_learning_thetas, ndr_learning_tuning_widths = train_model(
     stimuli=stim_list, j0=params["j0"], j1=params["j1"], h0=params["h0"], h1=params["h1"], N=params["N"],
     lr=params["lr"], T=params["T"], dt=params["dt"], noise=params["noise"], stim_noise=params["stim_noise"],
     count_thresh=params["count_thresh"], width_scaling=params["width_scaling"], n_sims=params["n_sims"],
@@ -66,3 +66,16 @@ plt.xticks(
     rotation=45
 )
 plt.show()
+
+#%%
+idr_learning_thetas=np.array(idr_learning_thetas)
+idr_learning_thetas_diff = circ_distance(idr_learning_thetas[1:], idr_learning_thetas[:-1])
+
+ndr_learning_thetas=np.array(ndr_learning_thetas)
+ndr_learning_thetas_diff = circ_distance(ndr_learning_thetas[1:], ndr_learning_thetas[:-1])
+
+idr_learning_tuning_widths=np.array(idr_learning_tuning_widths)
+idr_learning_tuning_widths_diff = circ_distance(idr_learning_tuning_widths[1:], idr_learning_tuning_widths[:-1])
+
+ndr_learning_tuning_widths=np.array(ndr_learning_tuning_widths)
+ndr_learning_tuning_widths_diff = circ_distance(ndr_learning_tuning_widths[1:], ndr_learning_tuning_widths[:-1])

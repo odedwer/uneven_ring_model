@@ -102,8 +102,13 @@ def train_model(stimuli, j0, j1, h0, h1, N, lr, T, dt, noise, stim_noise,
     model = Model(j0=j0, j1=j1, h0=h0, h1=h1, N=N, lr=lr, T=T, dt=dt, noise=noise, stim_noise=stim_noise,
                   count_thresh=count_thresh, width_scaling=width_scaling, n_sims=n_sims, nonlinearity=nonlinearity,
                   tuning_widths=tuning_widths, tuning_func=tuning_func, gains=gains, limit_width=limit_width)
+    learning_thetas = [model.theta.copy()]
+    learning_tuning_widths = [model.tuning_widths.copy()]
+
     for stim in tqdm(stimuli) if use_tqdm else stimuli:
         model.run(stim)
         if update:
             model.update(recalculate_connectivity=recalculate_connectivity, normalize_fr=normalize_fr)
-    return model
+            learning_thetas.append(model.theta.copy())
+            learning_tuning_widths.append(model.tuning_widths.copy())
+    return model, learning_thetas, learning_tuning_widths
