@@ -1,6 +1,7 @@
 from model import Model, train_model
 from itertools import product
 import scipy.stats as stats
+from scipy.signal import find_peaks
 from tqdm import tqdm
 import pandas as pd
 from utils import get, vm_like, get_natural_stats_distribution, get_bias_variance
@@ -135,15 +136,16 @@ def calculate_skews(model_idr, model_ndr, res):
     for idr_resp, ndr_resp in zip(idr_resps, ndr_resps):
         idr_skews.append(skew(idr_resp, nan_policy='omit'))
         ndr_skews.append(skew(ndr_resp, nan_policy='omit'))
-        
-        idr_peaks = np.where(np.diff(np.sign(np.gradient(idr_resp)))==-2)[0]
-        ndr_peaks = np.where(np.diff(np.sign(np.gradient(ndr_resp)))==-2)[0]
+        idr_peaks = find_peaks(idr_resp,prominence=0.1)[0]
+        ndr_peaks = find_peaks(ndr_resp,prominence=0.1)[0]
+        # idr_peaks = np.where(np.diff(np.sign(np.gradient(idr_resp)))==-2)[0]
+        # ndr_peaks = np.where(np.diff(np.sign(np.gradient(ndr_resp)))==-2)[0]
         
         idr_n_peaks.append(idr_peaks.size)
         ndr_n_peaks.append(ndr_peaks.size)
 
-        idr_peaks_strengths.append(idr_resp[idr_peaks+1])
-        ndr_peaks_strengths.append(idr_resp[ndr_peaks+1])
+        idr_peaks_strengths.append(idr_resp[idr_peaks])
+        ndr_peaks_strengths.append(idr_resp[ndr_peaks])
         
         idr_resp[idr_resp < model_idr.h0] = 0
         ndr_resp[ndr_resp < model_ndr.h0] = 0
