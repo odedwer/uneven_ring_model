@@ -11,8 +11,8 @@ params = {
     "h1": 0.4,
     "lr": 1e-2,
     "noise": 0.0,
-    "stim_noise": np.deg2rad(3),
-    "count_thresh": 0.97,
+    "stim_noise": 0,#np.deg2rad(3),
+    "count_thresh": 0.9,
     "width_scaling": 1,
     "n_stim": 350,
     "N": 420,
@@ -46,9 +46,9 @@ model_ndr,ndr_learning_thetas, ndr_learning_tuning_widths = train_model(
 
 title = "recalc_{}_limit_{}_noise".format(params["recalculate_connectivity"], params["limit_width"])
 
-main_plot(stim_list, model_idr, model_ndr, savename="main_plot_0_thresh_" + title)
+# main_plot(stim_list, model_idr, model_ndr, savename="main_plot_0_thresh_" + title)
 main_plot(stim_list, model_idr, model_ndr, choice_thresh="h0", savename="main_plot_h0_thresh_" + title)
-main_plot(stim_list, model_idr, model_ndr, choice_thresh="bayesian", savename="main_plot_bayes_thresh_" + title)
+# main_plot(stim_list, model_idr, model_ndr, choice_thresh="bayesian", savename="main_plot_bayes_thresh_" + title)
 # %%
 plot_firing_rate_for_stims(model_idr, model_ndr, savename="fr_" + title)
 plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, savename="cumulative_fr_h0_" + title)

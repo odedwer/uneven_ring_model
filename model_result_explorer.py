@@ -1,6 +1,6 @@
 import os
 from itertools import product
-
+import ast
 import numpy as np
 import pandas as pd
 from dash import Dash, html, dcc, Input, Output, State, ALL, ctx, MATCH, dash_table
@@ -17,11 +17,13 @@ import plotly.graph_objs as go
 
 # ---------- CONFIG ----------
 BASE_DIR = "figures"
-PDF_SUFFIXES = ["main_choice_h0","main_choice_None","cumulative_fr_0","cumulative_fr_h0", "firing_rates"]
+PDF_SUFFIXES = ["main_choice_h0", "main_choice_None", "cumulative_fr_0", "cumulative_fr_h0", "firing_rates"]
 METRIC_GROUPS = [
     "EMD_%s_STIM", "EMD_%s_UNIFORM", "%s_CORRECT_BIAS_MSE", "%s_INCORRECT_BIAS_MSE",
     "OBLIQUE_%s_SKEW", "OBLIQUE_%s_SKEW_H0", "NEAR_OBLIQUE_%s_SKEW", "NEAR_OBLIQUE_%s_SKEW_H0",
-    "CARDINAL_%s_SKEW", "CARDINAL_%s_SKEW_H0", "NEAR_CARDINAL_%s_SKEW", "NEAR_CARDINAL_%s_SKEW_H0"
+    "CARDINAL_%s_SKEW", "CARDINAL_%s_SKEW_H0", "NEAR_CARDINAL_%s_SKEW", "NEAR_CARDINAL_%s_SKEW_H0",
+    "OBLIQUE_%s_N_PEAKS", "NEAR_OBLIQUE_%s_N_PEAKS", "CARDINAL_%s_N_PEAKS", "NEAR_CARDINAL_%s_N_PEAKS",
+    "CENTER_%s_N_PEAKS", "NEAR_CENTER_%s_N_PEAKS"
 ]
 EXPECTED_PDFS = 5
 
@@ -36,6 +38,7 @@ def get_model_results():
     df = pd.concat(dfs, ignore_index=True)
     df = df.drop(columns=["Unnamed: 0"])
     return df
+    # return pd.read_csv("model_res.csv").drop(columns=["Unnamed: 0"])
 
 
 def parse_real_folder_structure(base_path):
@@ -193,6 +196,34 @@ def update_multiple_graphs(breakdown_param, fixed_vals, fixed_ids):
         )
 
         graph_figures.append(fig)
+    # do the same graph for the maximal peak strength for the IDR and NDR models
+    for prefix in ["NDR", "IDR"]:
+        for loc in ["OBLIQUE", "NEAR_OBLIQUE", "CARDINAL", "NEAR_CARDINAL", "CENTER", "NEAR_CENTER"]:
+            col = f"{loc}_{prefix}_PEAK_STRENGTH"
+            if col in filtered_df.columns:
+                fig = go.Figure()
+                # peak_strengths is an array of peak strengths. You should calculate the max peak strength for each location,
+                # and plot it over the breakdown parameter
+                peak_strengths = filtered_df[col]
+                if peak_strengths.isnull().all():
+                    continue
+                try:
+                    fig.add_trace(go.Scatter(
+                        x=filtered_df[breakdown_param],
+                        y=peak_strengths.apply(lambda x: max(ast.literal_eval(x))),
+                        mode="lines+markers",
+                        name=col
+                    ))
+                except:
+                    continue
+                fig.update_layout(
+                    title=f"{loc} {prefix} Max Peak Strength",
+                    xaxis_title=breakdown_param,
+                    yaxis_title="Max Peak Strength",
+                    template="plotly_white",
+                    height=300
+                )
+                graph_figures.append(fig)
 
     return html.Div(
         children=[
@@ -331,7 +362,7 @@ def _show_images(breakdown_param, selected_type):
     content = []
     row = []
     for val in sorted(app.display_cache.keys()):
-        file_path = app.display_cache[val].get(selected_type+".pdf")
+        file_path = app.display_cache[val].get(selected_type + ".pdf")
         if not file_path:
             print(f"File not found for {val} with type {selected_type}: {file_path}, options: {app.display_cache[val]}")
             continue

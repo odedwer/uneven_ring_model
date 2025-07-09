@@ -13,6 +13,28 @@ from scipy.stats import circvar, circmean
 from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
 from itertools import product
+from sklearn.mixture import GaussianMixture
+
+
+def find_gmm_peaks(firing_rates, max_peaks=3):
+    # Reshape for GMM
+    X = get(np.arange(len(firing_rates)).reshape(-1, 1))
+    y = get(np.array(firing_rates))
+    # Fit GMMs with 1 to max_peaks components
+    bics = []
+    models = []
+    for n in range(1, max_peaks + 1):
+        gmm = GaussianMixture(n_components=n, random_state=0)
+        gmm.fit(X, y)
+        bics.append(gmm.bic(X))
+        models.append(gmm)
+    best_gmm = models[np.argmin(np.array(bics)).item()]
+    # Get means (peak positions)
+    peak_positions = best_gmm.means_.flatten()
+    # Find closest indices in the original array
+    peak_indices = [int(np.round(pos)) for pos in peak_positions]
+    return sorted(peak_indices)
+
 
 def get_choice_distribution_width(choices, bins=100):
     # Calculate the histogram of choices
@@ -81,9 +103,9 @@ def animate_model_example(name, stim, y, theta, i=0):
 def animate_tuning_widths(name, idr_tuning_widths, ndr_tuning_widths, idr_theta, ndr_theta, kappa_wide=2,
                           kappa_sharp=8):
     fig, ax = plt.subplots()
-    idr_line, = ax.plot(idr_theta[0], idr_tuning_widths[0] / kappa_wide, color=ASD_COLOR, label="IDR",
+    idr_line, = ax.plot(idr_theta[0], idr_tuning_widths[0] / kappa_wide, color="#FF0000", label="IDR",
                         linewidth=3)
-    ndr_line, = ax.plot(ndr_theta[0], ndr_tuning_widths[0] / kappa_sharp, color=NT_COLOR, label="NDR",
+    ndr_line, = ax.plot(ndr_theta[0], ndr_tuning_widths[0] / kappa_sharp, color="#00A08A", label="NDR",
                         linewidth=3)
     # set xlabels to be in radians, 0 till 2pi
     ax.set_xticks([0, np.pi / 2, np.pi, 3 * np.pi / 2, 2 * np.pi],
