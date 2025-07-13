@@ -23,17 +23,19 @@ class Model:
         if is_iterable(gains):
             self.gains = np.array(gains)
         else:
-            self.gains = np.ones((N,self.n_sims)).astype(float) * gains
-        self.theta = np.repeat(np.linspace(0, 2 * np.pi, N),self.n_sims).reshape((N,self.n_sims))
+            self.gains = np.ones((self.n_sims, N)).astype(float) * gains
+        self.theta = np.repeat(np.linspace(0, 2 * np.pi, N), self.n_sims).reshape((self.n_sims, N))
         if is_iterable(tuning_widths):
             self.tuning_widths = np.array(tuning_widths).astype(float)
         else:
-            self.tuning_widths = np.ones((N,self.n_sims)).astype(float) * tuning_widths
+            self.tuning_widths = np.ones((self.n_sims, N)).astype(float) * tuning_widths
         self.tuning_func = tuning_func
-        self.J = (1 / self.N) * (self.j0 + self.j1 * np.cos(self.theta[:, None] - self.theta[None, :]))
-        self.r = np.zeros((self.time.size, N, n_sims))
+
+        self.J = (1 / self.N) * (self.j0 + self.j1 * np.cos(self.theta[:, None, :] - self.theta[..., None]))
+
+        self.r = np.zeros((self.time.size, n_sims, N))
         self.noise = noise
-        self._dW = np.random.normal(loc=0.0, scale=np.sqrt(dt) * self.noise, size=(self.time.size - 1, N, self.n_sims))
+        self._dW = np.random.normal(loc=0.0, scale=np.sqrt(dt) * self.noise, size=(self.time.size - 1, self.n_sims, N))
         self.lr = lr
         self.width_scaling = width_scaling
         self.count_thresh = count_thresh
@@ -43,8 +45,10 @@ class Model:
         self.nonlinearity = nonlinearity
 
     def deterministic_func(self, y, stim):
-        return -y + self.nonlinearity(((self.h0 + self.h1 * self.tuning_func((self.theta - stim),
-                                                                             self.tuning_widths)) * self.gains) + self.J @ y)
+        return -y + self.nonlinearity(
+            ((self.h0 + self.h1 * self.tuning_func((self.theta - stim), self.tuning_widths)) * self.gains) +
+            np.squeeze(self.J @ y[..., None], -1)
+        )
 
     def euler_maruyama(self, y, stim, i):
         return y + self.deterministic_func(y, stim) * self.dt + self._dW[i - 1]
@@ -53,7 +57,7 @@ class Model:
         self.stim_history.append(stim)
         # add noise to the stimulus, different noise for each neuron and time point
 
-        noisy_stim = stim + np.random.normal(0, self.stim_noise, (self.time.size, self.N, self.n_sims))
+        noisy_stim = stim + np.random.normal(0, self.stim_noise, (self.time.size, self.n_sims, self.N))
         noisy_stim[noisy_stim < 0] = 2 * np.pi + noisy_stim[noisy_stim < 0]
         noisy_stim %= 2 * np.pi
         for i in range(1, self.time.size):
@@ -67,7 +71,7 @@ class Model:
             fr = (fr - fr.min()) / (fr.max() - fr.min())
         dist = circ_distance(self.stim_history[-1], self.theta)
         old_theta, old_widths = self.theta.copy(), self.tuning_widths.copy()
-        self.theta += self.lr * fr.mean(-1) * dist
+        self.theta += self.lr * fr.mean(-1, keepdims=True) * dist
         self.theta[self.theta < 0] = (2 * np.pi) + self.theta[self.theta < 0]
         self.theta %= 2 * np.pi
         if self.limit_width:
