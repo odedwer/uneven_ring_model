@@ -23,12 +23,12 @@ class Model:
         if is_iterable(gains):
             self.gains = np.array(gains)
         else:
-            self.gains = np.ones(N).astype(float) * gains
-        self.theta = np.linspace(0, 2 * np.pi, N)
+            self.gains = np.ones((N,self.n_sims)).astype(float) * gains
+        self.theta = np.repeat(np.linspace(0, 2 * np.pi, N),self.n_sims).reshape((N,self.n_sims))
         if is_iterable(tuning_widths):
             self.tuning_widths = np.array(tuning_widths).astype(float)
         else:
-            self.tuning_widths = np.ones(N).astype(float) * tuning_widths
+            self.tuning_widths = np.ones((N,self.n_sims)).astype(float) * tuning_widths
         self.tuning_func = tuning_func
         self.J = (1 / self.N) * (self.j0 + self.j1 * np.cos(self.theta[:, None] - self.theta[None, :]))
         self.r = np.zeros((self.time.size, N, n_sims))
@@ -44,8 +44,7 @@ class Model:
 
     def deterministic_func(self, y, stim):
         return -y + self.nonlinearity(((self.h0 + self.h1 * self.tuning_func((self.theta - stim),
-                                                                             self.tuning_widths)) * self.gains)[:,
-                                      None] + self.J @ y)
+                                                                             self.tuning_widths)) * self.gains) + self.J @ y)
 
     def euler_maruyama(self, y, stim, i):
         return y + self.deterministic_func(y, stim) * self.dt + self._dW[i - 1]
@@ -54,7 +53,7 @@ class Model:
         self.stim_history.append(stim)
         # add noise to the stimulus, different noise for each neuron and time point
 
-        noisy_stim = stim + np.random.normal(0, self.stim_noise, (self.time.size, self.N))
+        noisy_stim = stim + np.random.normal(0, self.stim_noise, (self.time.size, self.N, self.n_sims))
         noisy_stim[noisy_stim < 0] = 2 * np.pi + noisy_stim[noisy_stim < 0]
         noisy_stim %= 2 * np.pi
         for i in range(1, self.time.size):
@@ -79,7 +78,7 @@ class Model:
                     (self.get_near_factor().astype(float) / self.base_factor.astype(float)) - 1)) + 1)
         if recalculate_connectivity:
             self.J = (1 / self.N) * (self.j0 + self.j1 * np.cos(self.theta[:, None] - self.theta[None, :]))
-            self.J[np.arange(self.N), np.arange(self.N)] = 0
+            # self.J[np.arange(self.N), np.arange(self.N)] = 0
         return old_theta, old_widths
 
     def get_near_factor(self):
@@ -104,11 +103,12 @@ def train_model(stimuli, j0, j1, h0, h1, N, lr, T, dt, noise, stim_noise,
                   tuning_widths=tuning_widths, tuning_func=tuning_func, gains=gains, limit_width=limit_width)
     learning_thetas = [model.theta.copy()]
     learning_tuning_widths = [model.tuning_widths.copy()]
-
+    learning_connectivity = [model.J.copy()]
     for stim in tqdm(stimuli) if use_tqdm else stimuli:
         model.run(stim)
         if update:
             model.update(recalculate_connectivity=recalculate_connectivity, normalize_fr=normalize_fr)
             learning_thetas.append(model.theta.copy())
             learning_tuning_widths.append(model.tuning_widths.copy())
-    return model, learning_thetas, learning_tuning_widths
+            learning_connectivity.append(model.J.copy())
+    return model, learning_thetas, learning_tuning_widths, learning_connectivity

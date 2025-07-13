@@ -269,3 +269,7 @@ def get_skew(x):
     :return: skewness
     """
     return stats.skew(get(x), axis=0)
+
+def get_fisher_sensitivity(theta_list, kappa_list, connectivity_list):
+
+    pass

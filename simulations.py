@@ -2,21 +2,22 @@
 from model import train_model
 from utils import get, vm_like, get_natural_stats_distribution, reload, circ_distance
 import cupy as np
+import matplotlib.pyplot as plt
 from viz import main_plot, plot_firing_rate_for_stims, plot_cumulative_firing_rate_for_stims, preferred_orientation_plot
 
 params = {
-    "j0": 0.3,
+    "j0": 0,
     "j1": 3,
-    "h0": 0.32,
-    "h1": 0.4,
-    "lr": 1e-2,
+    "h0": 0.75,
+    "h1": 1,
+    "lr": 0.005,
     "noise": 0.0,
-    "stim_noise": np.deg2rad(3),
-    "count_thresh": 0.97,
+    "stim_noise": 0,
+    "count_thresh": 0.9,
     "width_scaling": 1,
-    "n_stim": 350,
+    "n_stim": 450,
     "N": 420,
-    "T": 1,
+    "T": 2,
     "dt": 1e-2,
     "n_sims": 1,
     "nonlinearity": lambda x: np.maximum(x, 0),
@@ -33,7 +34,7 @@ model_idr,idr_learning_thetas, idr_learning_tuning_widths = train_model(
     count_thresh=params["count_thresh"], width_scaling=params["width_scaling"], n_sims=params["n_sims"],
     nonlinearity=params["nonlinearity"], tuning_widths=3,
     tuning_func=vm_like, gains=1, update=True, recalculate_connectivity=params["recalculate_connectivity"],
-    normalize_fr=True, limit_width=params["limit_width"]
+    normalize_fr=True, limit_width=params["limit_width"],use_tqdm=True
 )
 model_ndr,ndr_learning_thetas, ndr_learning_tuning_widths = train_model(
     stimuli=stim_list, j0=params["j0"], j1=params["j1"], h0=params["h0"], h1=params["h1"], N=params["N"],
@@ -41,14 +42,15 @@ model_ndr,ndr_learning_thetas, ndr_learning_tuning_widths = train_model(
     count_thresh=params["count_thresh"], width_scaling=params["width_scaling"], n_sims=params["n_sims"],
     nonlinearity=params["nonlinearity"], tuning_widths=8,
     tuning_func=vm_like, gains=1, update=True, recalculate_connectivity=params["recalculate_connectivity"],
-    normalize_fr=True, limit_width=params["limit_width"]
+    normalize_fr=True, limit_width=params["limit_width"],use_tqdm=True
 )
 
 title = "recalc_{}_limit_{}_noise".format(params["recalculate_connectivity"], params["limit_width"])
 
-main_plot(stim_list, model_idr, model_ndr, savename="main_plot_0_thresh_" + title)
+# main_plot(stim_list, model_idr, model_ndr, savename="main_plot_0_thresh_" + title)
 main_plot(stim_list, model_idr, model_ndr, choice_thresh="h0", savename="main_plot_h0_thresh_" + title)
-main_plot(stim_list, model_idr, model_ndr, choice_thresh="bayesian", savename="main_plot_bayes_thresh_" + title)
+plt.show()
+# main_plot(stim_list, model_idr, model_ndr, choice_thresh="bayesian", savename="main_plot_bayes_thresh_" + title)
 # %%
 plot_firing_rate_for_stims(model_idr, model_ndr, savename="fr_" + title)
 plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, savename="cumulative_fr_h0_" + title)
