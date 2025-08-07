@@ -54,9 +54,12 @@ class Model:
         return y + self.deterministic_func(y, stim) * self.dt + self._dW[i - 1]
 
     def run(self, stim):
+        if not is_iterable(stim):
+            stim = np.repeat(stim, self.n_sims).reshape((1, self.n_sims, 1))
+        else:
+            stim = np.array(stim).reshape((1, self.n_sims, 1))
         self.stim_history.append(stim)
         # add noise to the stimulus, different noise for each neuron and time point
-
         noisy_stim = stim + np.random.normal(0, self.stim_noise, (self.time.size, self.n_sims, self.N))
         noisy_stim[noisy_stim < 0] = 2 * np.pi + noisy_stim[noisy_stim < 0]
         noisy_stim %= 2 * np.pi
@@ -68,10 +71,11 @@ class Model:
         fr = self.r[-1, :, :]
         # Perform hebbian learning of self.theta based on the firing rates and the last stimulus
         if normalize_fr:
-            fr = (fr - fr.min()) / (fr.max() - fr.min())
+            fr = (fr - fr.min(-1, keepdims=True)) / (fr.max(-1, keepdims=True) - fr.min(-1, keepdims=True))
+            fr /= np.sum(fr, axis=-1, keepdims=True)
         dist = circ_distance(self.stim_history[-1], self.theta)
         old_theta, old_widths = self.theta.copy(), self.tuning_widths.copy()
-        self.theta += self.lr * fr.mean(-1, keepdims=True) * dist
+        self.theta += self.lr * fr.mean(-1, keepdims=True) * np.squeeze(dist)
         self.theta[self.theta < 0] = (2 * np.pi) + self.theta[self.theta < 0]
         self.theta %= 2 * np.pi
         if self.limit_width:
@@ -81,7 +85,7 @@ class Model:
             self.tuning_widths *= np.abs((self.width_scaling * (
                     (self.get_near_factor().astype(float) / self.base_factor.astype(float)) - 1)) + 1)
         if recalculate_connectivity:
-            self.J = (1 / self.N) * (self.j0 + self.j1 * np.cos(self.theta[:, None] - self.theta[None, :]))
+            self.J = (1 / self.N) * (self.j0 + self.j1 * np.cos(self.theta[:, None, :] - self.theta[..., None]))
             # self.J[np.arange(self.N), np.arange(self.N)] = 0
         return old_theta, old_widths
 
@@ -95,7 +99,7 @@ class Model:
 def train_model(stimuli, j0, j1, h0, h1, N, lr, T, dt, noise, stim_noise,
                 count_thresh, width_scaling, n_sims, nonlinearity,
                 tuning_widths, tuning_func, gains,
-                update, recalculate_connectivity, normalize_fr, limit_width, use_tqdm=False
+                update, recalculate_connectivity, normalize_fr, limit_width, use_tqdm=False, save_process=False
                 ):
     """
     Train the model with the given parameters
@@ -105,14 +109,18 @@ def train_model(stimuli, j0, j1, h0, h1, N, lr, T, dt, noise, stim_noise,
     model = Model(j0=j0, j1=j1, h0=h0, h1=h1, N=N, lr=lr, T=T, dt=dt, noise=noise, stim_noise=stim_noise,
                   count_thresh=count_thresh, width_scaling=width_scaling, n_sims=n_sims, nonlinearity=nonlinearity,
                   tuning_widths=tuning_widths, tuning_func=tuning_func, gains=gains, limit_width=limit_width)
-    learning_thetas = [model.theta.copy()]
-    learning_tuning_widths = [model.tuning_widths.copy()]
-    learning_connectivity = [model.J.copy()]
+    if save_process:
+        learning_thetas = [model.theta.copy()]
+        learning_tuning_widths = [model.tuning_widths.copy()]
+        learning_connectivity = [model.J.copy()]
     for stim in tqdm(stimuli) if use_tqdm else stimuli:
-        model.run(stim)
+        model.run(np.squeeze(stim))
         if update:
             model.update(recalculate_connectivity=recalculate_connectivity, normalize_fr=normalize_fr)
-            learning_thetas.append(model.theta.copy())
-            learning_tuning_widths.append(model.tuning_widths.copy())
-            learning_connectivity.append(model.J.copy())
-    return model, learning_thetas, learning_tuning_widths, learning_connectivity
+            if save_process:
+                learning_thetas.append(model.theta.copy())
+                learning_tuning_widths.append(model.tuning_widths.copy())
+                learning_connectivity.append(model.J.copy())
+    if save_process:
+        return model, learning_thetas, learning_tuning_widths, learning_connectivity
+    return model, None, None, None

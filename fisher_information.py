@@ -56,14 +56,14 @@ fi_stim_list = np.linspace(0, 2 * np.pi, 361)  # 0 to 2*pi in 1 degree increment
 fi = np.zeros((len(learning_tuning_widths), fi_stim_list.size),dtype=float)
 
 for t in range(len(learning_tuning_widths)):
-    for i in range(len(fi_stim_list)):
-        f_tag = tuning_derivative(np.pi, learning_thetas[0], learning_tuning_widths[0])
+    # for i in range(len(fi_stim_list)):
+    f_tag = tuning_derivative(np.pi, learning_thetas[0], learning_tuning_widths[0])
 
-        model.J = connectivity_list[t]
-        model.tuning_widths = learning_tuning_widths[t]
-        model.thetas = learning_thetas[t]
+    model.J = connectivity_list[t]
+    model.tuning_widths = learning_tuning_widths[t]
+    model.thetas = learning_thetas[t]
 
-        r_star = model.run(fi_stim_list[i])
-        M = get_M(connectivity_list[0], r_star)
+    r_star = model.run(fi_stim_list[i])
+    M = get_M(connectivity_list[0], r_star)
 
-        fi[t] = (f_tag @ M.T) @ (M @ f_tag)
+    fi[t] = (f_tag @ M.T) @ (M @ f_tag)

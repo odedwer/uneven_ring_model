@@ -145,18 +145,20 @@ def get_location_based_increase(N, precision, min_val=0.5):
 def circ_distance(x, y):
     try:
         return np.arctan2(np.sin(x - y), np.cos(x - y))
-    except Exception as e:
+    except AttributeError as e:
         return np.atan2(np.sin(x - y), np.cos(x - y))
 
 
-def get_natural_stats_distribution(n_points, peaks=None, kappa=6):
+def get_natural_stats_distribution(n_points, peaks=None, kappa=6,n_sims=1):
     if peaks is None:
         peaks = [-np.pi, -np.pi / 2, 0, np.pi / 2]
-    out = np.concatenate([np.random.vonmises(peak, kappa, n_points) for peak in peaks])
-    np.random.shuffle(out)
+
+    out = np.hstack([np.random.vonmises(peak, kappa, n_points*n_sims).reshape((n_sims, n_points)) for peak in peaks])
+    for o in out:
+        np.random.shuffle(o)
     out += 3 * np.pi
     out %= 2 * np.pi
-    return out - np.pi
+    return out.T - np.pi
 
 
 def get_bias_variance(model, sigma=0.75, seed=97, choice_thresh=None):
