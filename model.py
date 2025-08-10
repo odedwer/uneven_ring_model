@@ -4,6 +4,7 @@ from utils import get_natural_stats_distribution, circ_distance, is_iterable, vm
 
 # import numpy as np
 import cupy as np
+
 import pandas as pd
 
 
@@ -24,7 +25,7 @@ class Model:
             self.gains = np.array(gains)
         else:
             self.gains = np.ones((self.n_sims, N)).astype(float) * gains
-        self.theta = np.repeat(np.linspace(0, 2 * np.pi, N), self.n_sims).reshape((self.n_sims, N))
+        self.theta = np.repeat(np.linspace(0, 2 * np.pi, N), self.n_sims).reshape((self.n_sims, N), order='F')
         if is_iterable(tuning_widths):
             self.tuning_widths = np.array(tuning_widths).astype(float)
         else:

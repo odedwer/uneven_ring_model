@@ -2,6 +2,7 @@
 from model import train_model
 from utils import get, vm_like, get_natural_stats_distribution, reload, circ_distance
 import cupy as np
+# import numpy as np
 import matplotlib.pyplot as plt
 from viz import main_plot, plot_firing_rate_for_stims, plot_cumulative_firing_rate_for_stims, preferred_orientation_plot
 
@@ -10,32 +11,32 @@ params = {
     "j1": 3,
     "h0": 1.5,
     "h1": 1,
-    "lr": 0.005,
+    "lr": 0.01,
     "noise": 0.0,
     "stim_noise": 0,
     "count_thresh": 0.95,
     "width_scaling": 1,
-    "n_stim": 200,
+    "n_stim": 400,
     "N": 420,
     "T": 1,
     "dt": 1e-2,
-    "n_sims": 2,
+    "n_sims": 1,
     "nonlinearity": lambda x: np.maximum(x, 0),
     "recalculate_connectivity": True,
     "limit_width": False
 }
 
 np.random.seed(42)
-stim_list = get_natural_stats_distribution(int(params["n_stim"]), kappa=4.5, n_sims=params['n_sims']) + np.pi
+stim_list = get_natural_stats_distribution(int(params["n_stim"]), kappa=6, n_sims=params['n_sims']) + np.pi
 
-# model_idr,idr_learning_thetas, idr_learning_tuning_widths = train_model(
-#     stimuli=stim_list, j0=params["j0"], j1=params["j1"], h0=params["h0"], h1=params["h1"], N=params["N"],
-#     lr=params["lr"], T=params["T"], dt=params["dt"], noise=params["noise"], stim_noise=params["stim_noise"],
-#     count_thresh=params["count_thresh"], width_scaling=params["width_scaling"], n_sims=params["n_sims"],
-#     nonlinearity=params["nonlinearity"], tuning_widths=3,
-#     tuning_func=vm_like, gains=1, update=True, recalculate_connectivity=params["recalculate_connectivity"],
-#     normalize_fr=True, limit_width=params["limit_width"],use_tqdm=True,save_process=False
-# )
+model_idr,idr_learning_thetas, idr_learning_tuning_widths,idr_learning_connectivity = train_model(
+    stimuli=stim_list, j0=params["j0"], j1=params["j1"], h0=params["h0"], h1=params["h1"], N=params["N"],
+    lr=params["lr"], T=params["T"], dt=params["dt"], noise=params["noise"], stim_noise=params["stim_noise"],
+    count_thresh=params["count_thresh"], width_scaling=params["width_scaling"], n_sims=params["n_sims"],
+    nonlinearity=params["nonlinearity"], tuning_widths=3,
+    tuning_func=vm_like, gains=1, update=True, recalculate_connectivity=params["recalculate_connectivity"],
+    normalize_fr=True, limit_width=params["limit_width"],use_tqdm=True,save_process=False
+)
 model_ndr, ndr_learning_thetas, ndr_learning_tuning_widths, ndr_learning_connectivity = train_model(
     stimuli=stim_list, j0=params["j0"], j1=params["j1"], h0=params["h0"], h1=params["h1"], N=params["N"],
     lr=params["lr"], T=params["T"], dt=params["dt"], noise=params["noise"], stim_noise=params["stim_noise"],
