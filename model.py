@@ -54,12 +54,13 @@ class Model:
     def euler_maruyama(self, y, stim, i):
         return y + self.deterministic_func(y, stim) * self.dt + self._dW[i - 1]
 
-    def run(self, stim):
+    def run(self, stim, save_stim=True):
         if not is_iterable(stim):
             stim = np.repeat(np.array([stim]), self.n_sims).reshape((1, self.n_sims, 1))
         else:
             stim = np.array(stim).reshape((1, self.n_sims, 1))
-        self.stim_history.append(stim[0])
+        if save_stim:
+            self.stim_history.append(stim[0])
         # add noise to the stimulus, different noise for each neuron and time point
         noisy_stim = stim + np.random.normal(0, self.stim_noise, (self.time.size, self.n_sims, self.N))
         noisy_stim[noisy_stim < 0] = 2 * np.pi + noisy_stim[noisy_stim < 0]
@@ -73,9 +74,9 @@ class Model:
         # Perform hebbian learning of self.theta based on the firing rates and the last stimulus
         if normalize_fr:
             fr = (fr - fr.min(-1, keepdims=True)) / (fr.max(-1, keepdims=True) - fr.min(-1, keepdims=True))
-        dist = circ_distance(self.theta, self.stim_history[-1])
+        dist = circ_distance(self.stim_history[-1], self.theta)
         old_theta, old_widths = self.theta.copy(), self.tuning_widths.copy()
-        self.theta += self.lr * fr.mean(-1, keepdims=True) * np.squeeze(dist)
+        self.theta += self.lr * fr * np.squeeze(dist)
         self.theta[self.theta < 0] = (2 * np.pi) + self.theta[self.theta < 0]
         self.theta %= 2 * np.pi
         self.tuning_widths *= np.abs((self.width_scaling * (
@@ -85,7 +86,6 @@ class Model:
 
         if recalculate_connectivity:
             self.J = (1 / self.N) * (self.j0 + self.j1 * np.cos(self.theta[:, None, :] - self.theta[..., None]))
-            # self.J[np.arange(self.N), np.arange(self.N)] = 0
         return old_theta, old_widths
 
     def get_near_factor(self):
@@ -93,6 +93,7 @@ class Model:
         # for each neuron in the response, count the number of self.theta values that have a response greater than self.count_thresh
         near_count = (resps > self.count_thresh).sum(-1)
         return near_count
+
 
 
 def train_model(stimuli, j0, j1, h0, h1, N, lr, T, dt, noise, stim_noise,

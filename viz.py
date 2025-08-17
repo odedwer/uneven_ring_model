@@ -10,7 +10,7 @@ from matplotlib.gridspec import GridSpec
 ASD_COLOR, NT_COLOR = "#FF0000", "#00A08A"
 
 
-def _prep_model_for_main_plot(model, oblique_stim, cardinal_stim, choice_thresh,sim_idx=0):
+def _prep_model_for_main_plot(model, oblique_stim, cardinal_stim, choice_thresh, sim_idx=0):
     theta = get(model.theta)
     oblique_choices = get_choices(model, oblique_stim, n_choices=10000, choice_thresh=choice_thresh, sim_idx=sim_idx)
     cardinal_choices = get_choices(model, cardinal_stim, n_choices=10000, choice_thresh=choice_thresh, sim_idx=sim_idx)
@@ -25,7 +25,7 @@ def _prep_model_for_main_plot(model, oblique_stim, cardinal_stim, choice_thresh,
     return theta[sim_idx], oblique_choices, cardinal_choices, oblique_choices_width, cardinal_choices_width
 
 
-def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None,sim_idx=0):
+def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None, sim_idx=0):
     with warnings.catch_warnings(action='ignore'):
         oblique_stim = 5 * np.pi / 4
         cardinal_stim = np.pi
@@ -35,8 +35,10 @@ def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None
         ndr_theta, oblique_ndr_choices, cardinal_ndr_choices, oblique_ndr_choices_width, cardinal_ndr_choices_width = _prep_model_for_main_plot(
             model_ndr, oblique_stim, cardinal_stim, choice_thresh)
 
-        bias_idr, variance_idr, stimuli, bias_ci_idr = get_bias_variance(model_idr, sigma=1, choice_thresh=choice_thresh,sim_idx=sim_idx)
-        bias_ndr, variance_ndr, _, bias_ci_ndr = get_bias_variance(model_ndr, sigma=1, choice_thresh=choice_thresh,sim_idx=sim_idx)
+        bias_idr, variance_idr, stimuli, bias_ci_idr = get_bias_variance(model_idr, sigma=1,
+                                                                         choice_thresh=choice_thresh, sim_idx=sim_idx)
+        bias_ndr, variance_ndr, _, bias_ci_ndr = get_bias_variance(model_ndr, sigma=1, choice_thresh=choice_thresh,
+                                                                   sim_idx=sim_idx)
 
         plt.rcParams.update(
             {
@@ -52,11 +54,11 @@ def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None
         n_cols = 16
         gs = GridSpec(3, n_cols, figure=fig, height_ratios=[1, 0.7, 0.7])
 
-        row1_width = n_cols // 5
-        ax1 = fig.add_subplot(gs[0, 0:row1_width], projection='polar')
-        ax2 = fig.add_subplot(gs[0, row1_width:2 * row1_width], projection='polar')
-        ax3 = fig.add_subplot(gs[0, 2 * row1_width:3 * row1_width], projection='polar')
-        ax4 = fig.add_subplot(gs[0, 3 * row1_width + 1:])
+        row1_width = n_cols // 4
+        ax1 = fig.add_subplot(gs[0, 0:row1_width])
+        ax2 = fig.add_subplot(gs[0, row1_width:2 * row1_width])
+        # ax3 = fig.add_subplot(gs[0, 2 * row1_width:3 * row1_width], projection='polar')
+        ax4 = fig.add_subplot(gs[0, 2 * row1_width + 1:])
 
         row2_width = n_cols // 4
         ax5 = fig.add_subplot(gs[1, :row2_width])
@@ -70,28 +72,32 @@ def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None
 
         # plot the distribution of the stimuli
 
-        axes = [ax1, ax2, ax3, ax5, ax6, ax7, ax8]
-        axes[0].hist(get(stim_list)[:,sim_idx], bins=120, density=True, alpha=0.5, color="black")
-        axes[1].hist(idr_theta, bins=120, density=True, color=ASD_COLOR, alpha=0.5)
-        axes[2].hist(ndr_theta, bins=120, density=True, color=NT_COLOR, alpha=0.5)
-        axes[0].set_title("Stimulus")
-        axes[1].set_title("IDR")
-        axes[2].set_title("NDR")
+        axes = [ax1, ax2, ax5, ax6, ax7, ax8]
+        axes[0].hist(idr_theta, bins=90, density=True, alpha=0.5, color=ASD_COLOR,label="Preferred")
+        axes[0].hist(get(stim_list)[:, sim_idx], bins=90, density=True, alpha=0.5, color="gray", label="Stimuli")
+        axes[0].legend()
+        axes[1].hist(ndr_theta, bins=90, density=True, alpha=0.5, color=NT_COLOR, label="Preferred")
+        axes[1].hist(get(stim_list)[:, sim_idx], bins=90, density=True, alpha=0.5, color="gray", label="Stimuli")
+        axes[1].legend()
+        axes[0].set_title("IDR")
+        axes[1].set_title("NDR")
         for ax in axes:
             ax.set_xticks([0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi, 5 * np.pi / 4, 3 * np.pi / 2, 7 * np.pi / 4],
                           [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$",
                            r"$\frac{5\pi}{4}$", r"$\frac{3\pi}{2}$", r"$\frac{7\pi}{4}$"]
                           )
 
-        for ax in [ax1, ax2, ax3]:
-            ax.set_yticks([])
-            ax.tick_params(axis='x', which='major', pad=0.3)
+        # for ax in [ax1, ax2]:
+        #     ax.set_yticks([])
+        #     ax.tick_params(axis='x', which='major', pad=0.3)
 
         idr_sort_idx = get(np.argsort(model_idr.theta[sim_idx]))
         ndr_sort_idx = get(np.argsort(model_ndr.theta[sim_idx]))
-        ax4.plot(get(model_idr.theta[sim_idx][idr_sort_idx]), get(model_idr.tuning_widths[sim_idx][idr_sort_idx]), color=ASD_COLOR,
+        ax4.plot(get(model_idr.theta[sim_idx][idr_sort_idx]), get(model_idr.tuning_widths[sim_idx][idr_sort_idx]),
+                 color=ASD_COLOR,
                  label="IDR", linewidth=3)
-        ax4.plot(get(model_ndr.theta[sim_idx][ndr_sort_idx]), get(model_ndr.tuning_widths[sim_idx][ndr_sort_idx]), color=NT_COLOR,
+        ax4.plot(get(model_ndr.theta[sim_idx][ndr_sort_idx]), get(model_ndr.tuning_widths[sim_idx][ndr_sort_idx]),
+                 color=NT_COLOR,
                  label="NDR", linewidth=3)
         # set xlabels to be in radians, 0 till 2pi
         ax4.set_xticks([0, np.pi / 2, np.pi, 3 * np.pi / 2, 2 * np.pi],
@@ -105,7 +111,7 @@ def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None
             try:
                 ax.hist(get(choices), bins=40, density=True, alpha=0.5, color=color)
                 ax.text(0.5, 0.975, title, ha='center', va='center', fontsize=16, fontweight='bold',
-                    transform=ax.transAxes)
+                        transform=ax.transAxes)
             except ValueError:
                 pass
 
@@ -185,7 +191,7 @@ def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None
         if savename:
             new_savename = os.path.join("figures", *savename.split("_"))
             os.makedirs(new_savename, exist_ok=True)
-            new_savename = os.path.join(new_savename,f"main_choice_{choice_thresh}")
+            new_savename = os.path.join(new_savename, f"main_choice_{choice_thresh}")
             plt.savefig(f"{new_savename}.pdf")
 
 

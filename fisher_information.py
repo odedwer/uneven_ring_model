@@ -63,7 +63,7 @@ for t in range(len(learning_tuning_widths)):
     model.tuning_widths = learning_tuning_widths[t]
     model.thetas = learning_thetas[t]
 
-    r_star = model.run(fi_stim_list[i])
+    r_star = model.run(fi_stim_list[t])
     M = get_M(connectivity_list[0], r_star)
 
     fi[t] = (f_tag @ M.T) @ (M @ f_tag)

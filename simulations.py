@@ -9,15 +9,15 @@ from importlib import reload
 
 params = {
     "j0": 0,
-    "j1": 3,
-    "h0": 0.75,
+    "j1": 2.5,
+    "h0": 1.25,
     "h1": 1,
-    "lr": 0.005,
+    "lr": 0.01,
     "noise": 0.0,
     "stim_noise": 0,
-    "count_thresh": 0.9,
+    "count_thresh": 0.95,
     "width_scaling": 1,
-    "n_stim": 450,
+    "n_stim": 400,
     "N": 420,
     "T": 1,
     "dt": 1e-2,
@@ -30,13 +30,13 @@ params = {
 np.random.seed(42)
 stim_list = utils.get_natural_stats_distribution(int(params["n_stim"]), kappa=6, n_sims=params['n_sims'])
 
-model_idr,idr_learning_thetas, idr_learning_tuning_widths,idr_learning_connectivity = train_model(
+model_idr, idr_learning_thetas, idr_learning_tuning_widths, idr_learning_connectivity = train_model(
     stimuli=stim_list, j0=params["j0"], j1=params["j1"], h0=params["h0"], h1=params["h1"], N=params["N"],
     lr=params["lr"], T=params["T"], dt=params["dt"], noise=params["noise"], stim_noise=params["stim_noise"],
     count_thresh=params["count_thresh"], width_scaling=params["width_scaling"], n_sims=params["n_sims"],
     nonlinearity=params["nonlinearity"], tuning_widths=3,
     tuning_func=utils.vm_like, gains=1, update=True, recalculate_connectivity=params["recalculate_connectivity"],
-    normalize_fr=True, limit_width=params["limit_width"],use_tqdm=True,save_process=False
+    normalize_fr=True, limit_width=params["limit_width"], use_tqdm=True, save_process=False
 )
 model_ndr, ndr_learning_thetas, ndr_learning_tuning_widths, ndr_learning_connectivity = train_model(
     stimuli=stim_list, j0=params["j0"], j1=params["j1"], h0=params["h0"], h1=params["h1"], N=params["N"],
