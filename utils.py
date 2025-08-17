@@ -13,6 +13,28 @@ from scipy.stats import circvar, circmean
 from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
 from itertools import product
+from sklearn.mixture import GaussianMixture
+
+
+def find_gmm_peaks(firing_rates, max_peaks=3):
+    # Reshape for GMM
+    X = get(np.arange(len(firing_rates)).reshape(-1, 1))
+    y = get(np.array(firing_rates))
+    # Fit GMMs with 1 to max_peaks components
+    bics = []
+    models = []
+    for n in range(1, max_peaks + 1):
+        gmm = GaussianMixture(n_components=n, random_state=0)
+        gmm.fit(X, y)
+        bics.append(gmm.bic(X))
+        models.append(gmm)
+    best_gmm = models[np.argmin(np.array(bics)).item()]
+    # Get means (peak positions)
+    peak_positions = best_gmm.means_.flatten()
+    # Find closest indices in the original array
+    peak_indices = [int(np.round(pos)) for pos in peak_positions]
+    return sorted(peak_indices)
+
 
 def get_choice_distribution_width(choices, bins=100):
     # Calculate the histogram of choices
@@ -81,9 +103,9 @@ def animate_model_example(name, stim, y, theta, i=0):
 def animate_tuning_widths(name, idr_tuning_widths, ndr_tuning_widths, idr_theta, ndr_theta, kappa_wide=2,
                           kappa_sharp=8):
     fig, ax = plt.subplots()
-    idr_line, = ax.plot(idr_theta[0], idr_tuning_widths[0] / kappa_wide, color=ASD_COLOR, label="IDR",
+    idr_line, = ax.plot(idr_theta[0], idr_tuning_widths[0] / kappa_wide, color="#FF0000", label="IDR",
                         linewidth=3)
-    ndr_line, = ax.plot(ndr_theta[0], ndr_tuning_widths[0] / kappa_sharp, color=NT_COLOR, label="NDR",
+    ndr_line, = ax.plot(ndr_theta[0], ndr_tuning_widths[0] / kappa_sharp, color="#00A08A", label="NDR",
                         linewidth=3)
     # set xlabels to be in radians, 0 till 2pi
     ax.set_xticks([0, np.pi / 2, np.pi, 3 * np.pi / 2, 2 * np.pi],
@@ -123,28 +145,30 @@ def get_location_based_increase(N, precision, min_val=0.5):
 def circ_distance(x, y):
     try:
         return np.arctan2(np.sin(x - y), np.cos(x - y))
-    except Exception as e:
+    except AttributeError as e:
         return np.atan2(np.sin(x - y), np.cos(x - y))
 
 
-def get_natural_stats_distribution(n_points, peaks=None, kappa=6):
+def get_natural_stats_distribution(n_points, peaks=None, kappa=6,n_sims=1):
     if peaks is None:
         peaks = [-np.pi, -np.pi / 2, 0, np.pi / 2]
-    out = np.concatenate([np.random.vonmises(peak, kappa, n_points) for peak in peaks])
-    np.random.shuffle(out)
+
+    out = np.hstack([np.random.vonmises(peak, kappa, n_points*n_sims).reshape((n_sims, n_points)) for peak in peaks])
+    for o in out:
+        np.random.shuffle(o)
     out += 3 * np.pi
     out %= 2 * np.pi
-    return out - np.pi
+    return out.T
 
 
-def get_bias_variance(model, sigma=0.75, seed=97, choice_thresh=None):
+def get_bias_variance(model, sigma=0.75, seed=97, choice_thresh=None,sim_idx=0):
     np.random.seed(seed)
     stimuli = np.linspace(0, np.pi, 91)
     bias = np.zeros_like(stimuli)
     bias_ci = np.zeros(stimuli.shape)
     variance = np.zeros_like(stimuli)
     for i, stim in enumerate(stimuli):
-        choices = get_choices(model, stim, n_choices=10000, seed=seed, choice_thresh=choice_thresh)
+        choices = get_choices(model, stim, n_choices=10000, seed=seed, choice_thresh=choice_thresh,sim_idx=sim_idx)
         b = circ_distance(choices, stim)
         bias[i] = b.mean()
         bias_ci[i] = b.std()
@@ -240,9 +264,9 @@ def is_iterable(var):
     return not isinstance(var, str)
 
 
-def get_choices(model, stim, n_choices=10000, seed=97, choice_thresh=None):
+def get_choices(model, stim, n_choices=10000, seed=97, choice_thresh=None, sim_idx=0):
     np.random.seed(seed)
-    resps = np.squeeze(model.run(stim))
+    resps = np.squeeze(model.run(stim)[sim_idx])
     if choice_thresh is not None:
         if isinstance(choice_thresh,int) or isinstance(choice_thresh, float):
             resps[resps < choice_thresh] = 0
@@ -251,8 +275,11 @@ def get_choices(model, stim, n_choices=10000, seed=97, choice_thresh=None):
         elif choice_thresh == "bayesian":
             resps*=model.tuning_widths
     prob = np.squeeze((resps - resps.min()) / (resps - resps.min()).sum())
-    choices = np.random.choice(np.squeeze(model.theta), replace=True,
+    try:
+        choices = np.random.choice(np.squeeze(model.theta[sim_idx]), replace=True,
                                p=prob, size=n_choices)
+    except ValueError:
+        choices = np.full(n_choices, np.nan)
     return choices
 
 def reload(func):
@@ -266,3 +293,7 @@ def get_skew(x):
     :return: skewness
     """
     return stats.skew(get(x), axis=0)
+
+def get_fisher_sensitivity(theta_list, kappa_list, connectivity_list):
+
+    pass
