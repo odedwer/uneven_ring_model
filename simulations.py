@@ -1,4 +1,6 @@
 # %%
+from numpy.ma.core import maximum
+
 from model import train_model
 import utils
 import cupy as np
@@ -9,32 +11,32 @@ from importlib import reload
 
 params = {
     "j0": 0,
-    "j1": 2.5,
-    "h0": 1.25,
-    "h1": 1,
+    "j1": 2,
+    "h0": 1,
+    "h1": 1.5,
     "lr": 0.01,
     "noise": 0.0,
     "stim_noise": 0,
-    "count_thresh": 0.95,
+    "count_thresh": 0.97,
     "width_scaling": 1,
-    "n_stim": 400,
+    "n_stim": 350,
     "N": 420,
-    "T": 1,
+    "T": 1.5,
     "dt": 1e-2,
     "n_sims": 1,
-    "nonlinearity": lambda x: np.maximum(x, 0),
+    "nonlinearity": lambda x: np.maximum(x,0),
     "recalculate_connectivity": True,
     "limit_width": False
 }
 
-np.random.seed(42)
+np.random.seed(16)
 stim_list = utils.get_natural_stats_distribution(int(params["n_stim"]), kappa=6, n_sims=params['n_sims'])
 
 model_idr, idr_learning_thetas, idr_learning_tuning_widths, idr_learning_connectivity = train_model(
     stimuli=stim_list, j0=params["j0"], j1=params["j1"], h0=params["h0"], h1=params["h1"], N=params["N"],
     lr=params["lr"], T=params["T"], dt=params["dt"], noise=params["noise"], stim_noise=params["stim_noise"],
     count_thresh=params["count_thresh"], width_scaling=params["width_scaling"], n_sims=params["n_sims"],
-    nonlinearity=params["nonlinearity"], tuning_widths=3,
+    nonlinearity=params["nonlinearity"], tuning_widths=2,
     tuning_func=utils.vm_like, gains=1, update=True, recalculate_connectivity=params["recalculate_connectivity"],
     normalize_fr=True, limit_width=params["limit_width"], use_tqdm=True, save_process=False
 )
@@ -58,10 +60,10 @@ fig, ax = plt.subplots(1, 1, figsize=(10, 6))
 ax.plot(utils.get(np.arange(model_ndr.N)), utils.get(np.rad2deg(np.sort(model_ndr.theta)).T), label="IDR", color="blue")
 plt.show()
 # %%
-plot_firing_rate_for_stims(model_idr, model_ndr, savename="fr_" + title)
-plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, savename="cumulative_fr_h0_" + title)
-plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, choice_thresh=0, savename="cumulative_fr_0_" + title)
-plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, choice_thresh="bayesian",
+viz.plot_firing_rate_for_stims(model_idr, model_ndr, savename="fr_" + title)
+viz.plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, savename="cumulative_fr_h0_" + title)
+viz.plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, choice_thresh=0, savename="cumulative_fr_0_" + title)
+viz.plot_cumulative_firing_rate_for_stims(model_idr, model_ndr, choice_thresh="bayesian",
                                       savename="cumulative_fr_bayes_" + title)
 preferred_orientation_plot(model_idr, model_ndr, savename="preferred_orientation_" + title)
 
