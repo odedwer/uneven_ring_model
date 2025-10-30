@@ -10,21 +10,21 @@ import viz
 from importlib import reload
 
 params = {
-    "j0": 0.2,
-    "j1": 1.9,
+    "j0": 0,
+    "j1": 3,
     "h0": 1,
-    "h1": 1.5,
+    "h1": 1.25,
     "lr": 0.01,
     "noise": 0.0,
     "stim_noise": 0,
-    "count_thresh": 0.90,
+    "count_thresh": 0.9,
     "width_scaling": 1,
-    "n_stim": 350,
-    "N": 210,
-    "T": 1.5,
+    "n_stim": 360,
+    "N": 200,
+    "T": 1,
     "dt": 1e-2,
     "n_sims": 1,
-    "nonlinearity": lambda x: np.maximum(x,0),
+    "nonlinearity": lambda x: x,
     "recalculate_connectivity": True,
     "limit_width": False
 }
@@ -36,7 +36,7 @@ model_idr, idr_learning_thetas, idr_learning_tuning_widths, idr_learning_connect
     stimuli=stim_list, j0=params["j0"], j1=params["j1"], h0=params["h0"], h1=params["h1"], N=params["N"],
     lr=params["lr"], T=params["T"], dt=params["dt"], noise=params["noise"], stim_noise=params["stim_noise"],
     count_thresh=params["count_thresh"], width_scaling=params["width_scaling"], n_sims=params["n_sims"],
-    nonlinearity=params["nonlinearity"], tuning_widths=2,
+    nonlinearity=params["nonlinearity"], tuning_widths=2.5,
     tuning_func=utils.vm_like, gains=1, update=True, recalculate_connectivity=params["recalculate_connectivity"],
     normalize_fr=True, limit_width=params["limit_width"], use_tqdm=True, save_process=False
 )
@@ -44,7 +44,7 @@ model_ndr, ndr_learning_thetas, ndr_learning_tuning_widths, ndr_learning_connect
     stimuli=stim_list, j0=params["j0"], j1=params["j1"], h0=params["h0"], h1=params["h1"], N=params["N"],
     lr=params["lr"], T=params["T"], dt=params["dt"], noise=params["noise"], stim_noise=params["stim_noise"],
     count_thresh=params["count_thresh"], width_scaling=params["width_scaling"], n_sims=params["n_sims"],
-    nonlinearity=params["nonlinearity"], tuning_widths=8,
+    nonlinearity=params["nonlinearity"], tuning_widths=6,
     tuning_func=utils.vm_like, gains=1, update=True, recalculate_connectivity=params["recalculate_connectivity"],
     normalize_fr=True, limit_width=params["limit_width"], use_tqdm=True, save_process=False
 )

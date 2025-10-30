@@ -28,7 +28,7 @@ def _prep_model_for_main_plot(model, oblique_stim, cardinal_stim, choice_thresh,
 
 def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None, sim_idx=0):
     with warnings.catch_warnings(action='ignore'):
-        oblique_stim = 5 * np.pi / 4
+        oblique_stim = 3*np.pi / 4
         cardinal_stim = np.pi
 
         idr_theta, oblique_idr_choices, cardinal_idr_choices, _, _ = _prep_model_for_main_plot(
@@ -41,8 +41,11 @@ def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None
         bias_ndr, variance_ndr, _, bias_ci_ndr = get_bias_variance(model_ndr, sigma=1, choice_thresh=choice_thresh,
                                                                    sim_idx=sim_idx)
 
+
         stimuli_oblique_idx = np.argmin(np.abs(stimuli - oblique_stim))
         stimuli_cardinal_idx = np.argmin(np.abs(stimuli - cardinal_stim))
+        print(stimuli_oblique_idx, stimuli[stimuli_oblique_idx])
+        print(stimuli_cardinal_idx, stimuli[stimuli_cardinal_idx])
 
         plt.rcParams.update(
             {
@@ -59,10 +62,10 @@ def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None
         gs = GridSpec(3, n_cols, figure=fig, height_ratios=[1, 0.7, 0.7])
 
         row1_width = n_cols // 4
-        ax1 = fig.add_subplot(gs[0, 0:row1_width], projection='polar')
-        ax2 = fig.add_subplot(gs[0, row1_width:2 * row1_width], projection='polar')
-        # ax3 = fig.add_subplot(gs[0, 2 * row1_width:3 * row1_width], projection='polar')
-        ax4 = fig.add_subplot(gs[0, 2 * row1_width + 1:])
+        ax1 = fig.add_subplot(gs[0, 0:3], projection='polar')
+        ax2 = fig.add_subplot(gs[0, 3:6], projection='polar')
+        ax3 = fig.add_subplot(gs[0, 6:9], projection='polar')
+        ax4 = fig.add_subplot(gs[0, 10:])
 
         row2_width = n_cols // 4
         ax5 = fig.add_subplot(gs[1, :row2_width])
@@ -76,24 +79,25 @@ def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None
 
         # plot the distribution of the stimuli
 
-        axes = [ax1, ax2, ax5, ax6, ax7, ax8]
-        axes[0].hist(idr_theta, bins=90, density=True, alpha=0.5, color=ASD_COLOR, label="Preferred")
+        axes = [ax1, ax2,ax3, ax5, ax6, ax7, ax8]
         axes[0].hist(get(stim_list)[:, sim_idx], bins=90, density=True, alpha=0.5, color="gray", label="Stimuli")
-        axes[0].legend()
-        axes[1].hist(ndr_theta, bins=90, density=True, alpha=0.5, color=NT_COLOR, label="Preferred")
-        axes[1].hist(get(stim_list)[:, sim_idx], bins=90, density=True, alpha=0.5, color="gray", label="Stimuli")
-        axes[1].legend()
-        axes[0].set_title("IDR")
-        axes[1].set_title("NDR")
+        axes[1].hist(idr_theta, bins=90, density=True, alpha=0.5, color=ASD_COLOR, label="Preferred")
+        # axes[0].legend()
+        axes[2].hist(ndr_theta, bins=90, density=True, alpha=0.5, color=NT_COLOR, label="Preferred")
+        # axes[1].hist(get(stim_list)[:, sim_idx], bins=90, density=True, alpha=0.5, color="gray", label="Stimuli")
+        # axes[1].legend()
+        axes[0].set_title("Stimuli")
+        axes[1].set_title("IDR")
+        axes[2].set_title("NDR")
         for ax in axes:
             ax.set_xticks([0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi, 5 * np.pi / 4, 3 * np.pi / 2, 7 * np.pi / 4],
                           [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$",
                            r"$\frac{5\pi}{4}$", r"$\frac{3\pi}{2}$", r"$\frac{7\pi}{4}$"]
                           )
 
-        # for ax in [ax1, ax2]:
-        #     ax.set_yticks([])
-        #     ax.tick_params(axis='x', which='major', pad=0.3)
+        for ax in [ax1, ax2, ax3]:
+            ax.set_yticks([])
+            ax.tick_params(axis='x', which='major', pad=0.3)
 
         idr_sort_idx = get(np.argsort(model_idr.theta[sim_idx]))
         ndr_sort_idx = get(np.argsort(model_ndr.theta[sim_idx]))
@@ -165,8 +169,8 @@ def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None
         ax9.set_yticklabels(np.round(ax9.get_yticks(), 2))
         ax9.legend()
 
-        ax10.plot(get(stimuli), get(variance_idr), color=ASD_COLOR, label="IDR", linewidth=3)
-        ax10.plot(get(stimuli), get(variance_ndr), color=NT_COLOR, label="NDR", linewidth=3)
+        ax10.plot(get(stimuli), get(np.sqrt(np.array(variance_idr))), color=ASD_COLOR, label="IDR", linewidth=3)
+        ax10.plot(get(stimuli), get(np.sqrt(np.array(variance_ndr))), color=NT_COLOR, label="NDR", linewidth=3)
         # set the xticks to 0-2pi in pi/4 increments
         ax10.set_xticks([0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi],
                         [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$"])
@@ -176,7 +180,7 @@ def main_plot(stim_list, model_idr, model_ndr, choice_thresh=None, savename=None
         # ax.hlines(0, 0, 2*np.pi, color='black', linestyle='-', lw=1)
 
         ax10.set_xlabel("Stimulus")
-        ax10.set_ylabel("Variance")
+        ax10.set_ylabel("SD")
         # set yticklabels to a larger font size
         ax10.set_yticklabels(np.round(ax10.get_yticks(), 2))
         ax10.legend()

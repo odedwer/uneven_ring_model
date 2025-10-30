@@ -89,6 +89,12 @@ class Model:
         return old_theta, old_widths
 
     def get_near_factor(self):
+        """
+        Calculates a factor related to how many other neurons a given neuron responds to, based on the tuning function and `self.count_thresh`.
+
+        Returns:
+            numpy.ndarray: An array of factors for each neuron.
+        """
         resps = self.tuning_func(self.theta[:, None, :] - self.theta[..., None], self.tuning_widths[..., None])
         # for each neuron in the response, count the number of self.theta values that have a response greater than self.count_thresh
         near_count = (resps > self.count_thresh).sum(-1)

@@ -165,17 +165,23 @@ def get_bias_variance(model, sigma=0.75, seed=97, choice_thresh=None,sim_idx=0):
     np.random.seed(seed)
     stimuli = np.linspace(0, np.pi, 91)
     bias = np.zeros_like(stimuli)
-    bias_ci = np.zeros(stimuli.shape)
+    bias_ci = np.zeros(stimuli.shape+(2,))
     variance = np.zeros_like(stimuli)
     for i, stim in enumerate(stimuli):
         choices = get_choices(model, stim, n_choices=10000, seed=seed, choice_thresh=choice_thresh,sim_idx=sim_idx)
         b = circ_distance(choices, stim)
         bias[i] = b.mean()
-        bias_ci[i] = b.std()
+        # bootstrap for bias ci
+        boot_num = 1000
+        boot_samples = np.random.choice(choices, size=(boot_num, choices.size), replace=True)
+        boot_bias = circ_distance(boot_samples, stim).mean(axis=1)
+        bias_ci[i] = np.quantile(boot_bias, [0.025, 0.975])
         variance[i] = circvar(get(choices))
     if sigma > 0:
         smooth_bias = scipy.ndimage.gaussian_filter1d(get(bias), sigma)
-        smooth_bias_ci = scipy.ndimage.gaussian_filter1d(get(bias_ci), sigma)
+        smooth_bias_ci = get(np.zeros(bias_ci.shape))
+        smooth_bias_ci[:, 0] = scipy.ndimage.gaussian_filter1d(get(bias_ci[:, 0]), sigma)
+        smooth_bias_ci[:, 1] = scipy.ndimage.gaussian_filter1d(get(bias_ci[:, 1]), sigma)
         smooth_variance = scipy.ndimage.gaussian_filter1d(get(variance), sigma)
     else:
         smooth_bias, smooth_variance, smooth_bias_ci = get(bias), get(variance), get(bias_ci)
